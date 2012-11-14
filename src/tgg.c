@@ -1,3 +1,8 @@
+/* 功能描述
+ * 一、在指定IP段随机生成IPv4地址.
+ * 二、多次connect该IP地址443端口，计算平均消耗时间。
+ * 三、发送ssl handshake，测试该IP地址是否支持https访问。
+ * */
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -5,11 +10,12 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <arpa/inet.h>
 #include <errno.h>
 
-#define conn_TIMEOUT    1000    //:ms
-#define conn_TIMES      4       //
-#define ssl_TIMEOUT     1000    //:ms
+#define conn_TIMEOUT    1000    //连接超时 单位:ms
+#define conn_TIMES      4       //连接次数
+#define ssl_TIMEOUT     1000    //ssl超时 单位:ms
 
 //typedef
 typedef long    int32;
@@ -18,6 +24,7 @@ typedef char    int8;
 typedef unsigned long   uint32;
 typedef unsigned short  uint16;
 typedef unsigned char   uint8;
+#define PACKED __attribute__((packed))
 
 typedef union _tp_IPv4
 {
@@ -26,12 +33,11 @@ typedef union _tp_IPv4
 }IPv4;
 
 
-#define PACKED __attribute__((packed))
 typedef struct _in_SSL_HEAD
 {
     uint8   ContentType;    //==22 Handshake
     uint16  SSLVer;         //==0x0301 TLS1.0
-    uint16  ContentLen;        //使用网络字节序
+    uint16  ContentLen;     //使用网络字节序
 }PACKED SSLHead;
 typedef struct _in_HandShake_HEAD
 {
@@ -116,17 +122,17 @@ int tssl(int sk)
     if (FD_ISSET(sk, &Read))
     {
         iret = recv(sk, &sslh, sizeof(sslh), 0);
-        if (iret != sizeof(sslh)) return ssl_TIMEOUT * 4;
+        if (iret != sizeof(sslh)) return ssl_TIMEOUT * 4;//connect reset!
         iret = recv(sk, &HSh, sizeof(HSh), 0);
         if (iret != sizeof(HSh)) return ssl_TIMEOUT * 4;
         if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x2) return ssl_TIMEOUT * 4;
         return ssl_TIMEOUT - (timeout.tv_sec*1000 + (timeout.tv_usec+500)/1000);
     }
 
-    return ssl_TIMEOUT * 4;
+    return ssl_TIMEOUT;
 }
 
-int tconn(unsigned int tip, bool ttrans)
+int tconn(unsigned int tip)
 {
     int skfd = -1;
     struct sockaddr_in gsrv;
@@ -139,7 +145,7 @@ int tconn(unsigned int tip, bool ttrans)
     gsrv.sin_port = htons(443);
     gsrv.sin_addr.s_addr = tip;
 
-    int i, iret = 0, issl = 0;
+    int i, issl = 0;
     for (i = 0; i < conn_TIMES; i++)
     {
         if ((skfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
@@ -167,8 +173,7 @@ int tconn(unsigned int tip, bool ttrans)
         select(skfd+1, NULL, &Write, NULL, &timeout);	
         if (FD_ISSET(skfd, &Write))
         {
-            iret += conn_TIMEOUT - (timeout.tv_sec*1000 + (timeout.tv_usec+500)/1000);
-            if (i == conn_TIMES - 1 && ttrans == true)
+            if (i == conn_TIMES - 1)//最后一次进行ssl handshake
             {
                 issl = tssl(skfd);
                 close(skfd);
@@ -179,11 +184,11 @@ int tconn(unsigned int tip, bool ttrans)
         else
         {
             close(skfd);
-            return conn_TIMEOUT * 4;
+            return conn_TIMEOUT;
         }
     }
 
-    return iret / conn_TIMES;
+    return conn_TIMEOUT;
 }
 
 unsigned int genIP(void)
@@ -206,7 +211,7 @@ unsigned int genIP(void)
         Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
         if (l >= 32) Mask[i].ipv4 = 0U;
 
-        printf("IP[%x] mask[%x]\n", IPh[i].ipv4, Mask[i].ipv4);
+        printf("IP[%lx] mask[%lx]\n", IPh[i].ipv4, Mask[i].ipv4);
     }
 
     return i;
@@ -225,7 +230,7 @@ int main(int argc, char** argv)
         {
             tip.ipv4 = inet_addr(argv[i]);
             printf("will [%d][%d.%d.%d.%d]\t", i-1, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
-            timet = tconn(tip.ipv4, true);
+            timet = tconn(tip.ipv4);
             if (timet > 0 && timet < 500)
             {
                 printf("[%d][%d.%d.%d.%d]+[.%d]\n", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
@@ -243,13 +248,11 @@ int main(int argc, char** argv)
         isel = rand % gaddCNT;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
 
-//        printf("will [%d][%d.%d.%d.%d]\t", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
-        timet = tconn(tip.ipv4, true);
-        if (timet > 0 && timet < 700)
+        timet = tconn(tip.ipv4);
+        if (timet > 0 && timet < ssl_TIMEOUT)
         {
             printf("[%d][%d.%d.%d.%d]+[.%d]\n", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
         }
-//        else printf("fail\n");
     }
     return 0;
 }
