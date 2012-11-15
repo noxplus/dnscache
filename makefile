@@ -16,7 +16,7 @@ vpath %.o $(OBJ)
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 
-target=tgg
+target=tgg transdns
 
 none:
 	@echo all target $(target)

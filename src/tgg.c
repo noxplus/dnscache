@@ -3,63 +3,14 @@
  * 二、多次connect该IP地址443端口，计算平均消耗时间。
  * 三、发送ssl handshake，测试该IP地址是否支持https访问。
  * */
-#include <stdio.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <stdbool.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <arpa/inet.h>
-#include <errno.h>
+
+#include "inc.h"
 
 #define conn_TIMEOUT    1000    //连接超时 单位:ms
 #define conn_TIMES      4       //连接次数
 #define ssl_TIMEOUT     1000    //ssl超时 单位:ms
+#define gaddCNT         3
 
-//typedef
-typedef long    int32;
-typedef short   int16;
-typedef char    int8;
-typedef unsigned long   uint32;
-typedef unsigned short  uint16;
-typedef unsigned char   uint8;
-#define PACKED __attribute__((packed))
-
-typedef union _tp_IPv4
-{
-    uint32  ipv4;
-    uint8   ipc[4];
-}IPv4;
-
-
-typedef struct _in_SSL_HEAD
-{
-    uint8   ContentType;    //==22 Handshake
-    uint16  SSLVer;         //==0x0301 TLS1.0
-    uint16  ContentLen;     //使用网络字节序
-}PACKED SSLHead;
-typedef struct _in_HandShake_HEAD
-{
-    uint8   HandshakeType;  //==0x01 Client Hello
-    uint8   LenHi;          //长度高8位
-    uint16  LenLo;          //长度低16位
-}PACKED HSHead;
-typedef struct _tp_SSL_CLI_HELLO
-{
-    SSLHead ssl;
-    HSHead  hands;
-    uint16  SSLVer;         //==0x0301 TLS1.0
-    uint8   rand[32];       //32字节随机数。前4字节是时间
-    uint8   sidLen;         //0
-    uint16  CipherSuitesLen;    //强制使用长度为1
-    uint16  CipherSuites;   //这里简化为长度为1的数组。
-    uint8   CompMethLen;    //1
-    uint8   CompMeth;       //==0 (null)
-    //extension
-}PACKED SSLCliHello;
-
-#define gaddCNT 3
 char*   gadd[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
 
 IPv4    IPh[gaddCNT];
