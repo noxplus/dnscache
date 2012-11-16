@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -73,8 +74,8 @@ typedef struct _tp_dns_arecd
 
 typedef struct _tp_dns_recode
 {
-    uint32 index;    //
-    uint32 type;     //
+    uint32 index;   //
+    uint32 type;    //
     int32 ttl;      //dns time to live
     union _un_name
     {
@@ -83,3 +84,18 @@ typedef struct _tp_dns_recode
     }uname;
     IPv4 ip;
 }DNS_Recode, *pDNS_Recode;
+
+
+typedef struct _tp_rbtree_node RBNode;
+struct _tp_rbtree_node
+{
+    RBNode*     Parent;
+    RBNode*     Left;
+    RBNode*     Right;
+    uint32      Key;
+    uint32      Color;
+};
+typedef struct _tp_rbtree_root
+{
+    RBNode*     Root;
+}RBRoot;

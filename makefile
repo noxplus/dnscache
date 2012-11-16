@@ -16,7 +16,7 @@ vpath %.o $(OBJ)
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 
-target=tgg transdns
+target=tgg transdns rbtree
 
 none:
 	@echo all target $(target)
@@ -36,4 +36,4 @@ bin:$(target)
 rebuild:clean obj bin
 
 clean:
-	@-rm -rf $(BIN)/* $(OBJ)/*
+	@-rm -f $(BIN)/* $(OBJ)/*.o
