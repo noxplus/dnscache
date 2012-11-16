@@ -38,22 +38,29 @@ int gq(char* dst, char* src)
 }
 int udpquery(char* sd, int slen)
 { 
+    char buf[1024];
     int skfd = -1;
     struct sockaddr_in dsrv;
 
-    memset(&dsrv, 0, sizeof(dsrv));
+    bzero(&dsrv, sizeof(dsrv));
 
     dsrv.sin_family = AF_INET;
     dsrv.sin_port = htons(53);
     dsrv.sin_addr.s_addr = inet_addr(srv);
 
-    if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+    if ((skfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
     {
         printf("socket error\n");
         return -1;
     }
 
+    printf("will send\n");
     sendto(skfd, sd, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
+    printf("send ok\n");
+    recvfrom(skfd, buf, 1024, 0, NULL, NULL);
+    printf("recv ok\n");
+
+    close(skfd);
 
     return 0;
 }
