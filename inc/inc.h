@@ -61,6 +61,13 @@ typedef struct _tp_dns_head
     uint16  Addits;
 }DnsHead;
 
+typedef struct _tp_dns_qrecd
+{
+    uint8   namelen;
+    char    name[64];
+    uint16  type;
+    uint16  class;
+}Query;
 typedef struct _tp_dns_arecd
 {
     uint8   namelen;

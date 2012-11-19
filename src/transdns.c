@@ -36,11 +36,104 @@ int gq(char* dst, char* src)
     dst[i+1+4] = 0x01;//class = 0x0001 netbyte
     return i + 6;
 }
+int addtree(char* name, uint32 addr)
+{
+    IPv4 ip;
+    ip.ipv4 = addr;
+    printf("[%s] = [%d.%d.%d.%d]\n", name, ip.ipc[3], ip.ipc[2],ip.ipc[1], ip.ipc[0]);
+    return 0;
+}
+
+int unpackdns(char * buf)
+{
+    int i;
+    DnsHead *pHead = (DnsHead*)buf;
+    printf("ques=%d, ans=%d\n", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    char *cur = buf+sizeof(DnsHead);
+    char *str;
+    int offset, iQue, iAns;
+
+    Query* query = NULL;
+    Answer* answer = NULL;
+
+    iQue = ntohs(pHead->Quests);
+    query = (Query*)malloc(sizeof(Query));
+    bzero(query, iQue*sizeof(Query));
+
+    for (i = 0; i < iQue; i++)
+    {
+        str = cur;
+        offset = 0;
+        while (*str != 0x00)
+        {
+            if ((*str & 0xc0) == 0xc0)
+            {
+                if (offset == 0) cur++;
+                offset = (*str&0x03)*256 + *(str+1);
+                str = buf+offset;
+            }
+            if (offset == 0) cur += *str + 1;
+            memcpy(query[i].name+query[i].namelen, str, *str+1);
+            query[i].namelen += *str+1;
+            str += *str+1;
+        }
+        cur++;
+        query[i].type = ntohs(*((short*)cur));
+        cur+=2;
+        query[i].class = ntohs(*((short*)cur));
+        cur += 2;
+    }
+
+    iAns = ntohs(pHead->Ansers);
+    answer = (Answer*)malloc(sizeof(Answer));
+    bzero(answer, iAns*sizeof(Answer));
+
+    for (i = 0; i < iAns; i++)
+    {
+        str = cur;
+        printf("off: %x\t", cur - buf);
+        offset = 0;
+        while (*str != 0x00)
+        {
+            if ((*str & 0xc0) == 0xc0)
+            {
+                if (offset == 0) cur++;
+                offset = (*str&0x03)*256 + *(str+1);
+                str = buf + offset;
+            }
+            if (offset == 0) cur += *str + 1;
+            memcpy(answer[i].name+answer[i].namelen, str, *str+1);
+            answer[i].namelen += *str+1;
+            str += *str+1;
+        }
+        cur++;
+        answer[i].type = ntohs(*((short*)cur));
+        cur+=2;
+        answer[i].class = ntohs(*((short*)cur));
+        cur += 2;
+        answer[i].ttl = ntohl(*((long*)cur));
+        cur+=4;
+        answer[i].Addlen = ntohs(*((short*)cur));
+        cur+=2;
+        answer[i].ipadd.ipv4 = ntohl(*((unsigned long*)cur));
+        cur += answer[i].Addlen;
+        if (answer[i].Addlen == 4 && answer[i].type == 0x01 && answer[i].class == 0x01)
+        {
+            addtree(query[0].name, answer[i].ipadd.ipv4);
+            return 1;
+        }
+        printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].class, answer[i].ttl, answer[i].Addlen);
+    }
+    return 0;
+}
+
 int udpquery(char* sd, int slen)
 { 
     char buf[1024];
     int skfd = -1;
     struct sockaddr_in dsrv;
+    struct timeval timeout;
+    fd_set fdset;
 
     bzero(&dsrv, sizeof(dsrv));
 
@@ -55,13 +148,41 @@ int udpquery(char* sd, int slen)
     }
 
     printf("will send\n");
-    sendto(skfd, sd, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
-    printf("send ok\n");
-    recvfrom(skfd, buf, 1024, 0, NULL, NULL);
-    printf("recv ok\n");
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+    FD_ZERO(&fdset);
+    FD_SET(skfd, &fdset);
+    select(skfd+1, NULL, &fdset, NULL, &timeout);
+    if (FD_ISSET(skfd, &fdset))
+    {
+        sendto(skfd, sd, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
+        printf("send ok\n");
+    }
+    else
+    {
+        printf("select error\n");
+        close(skfd);
+        return 1;
+    }
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+    FD_ZERO(&fdset);
+    FD_SET(skfd, &fdset);
+    select(skfd+1, &fdset, NULL, NULL, &timeout);
+    if (FD_ISSET(skfd, &fdset))
+    {
+        recvfrom(skfd, buf, 1024, 0, NULL, NULL);
+        printf("recv ok\n");
+        unpackdns(buf);
+    }
+    else
+    {
+        printf("recv select error\n");
+        close(skfd);
+        return 2;
+    }
 
     close(skfd);
-
     return 0;
 }
 
@@ -83,6 +204,7 @@ void gendata()
 //参数：目标域名
 int main(int argc, char** argv)
 {
+    qry = argv[1];
     gendata();
     return 0;
 }
