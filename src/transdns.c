@@ -141,7 +141,7 @@ int udpquery(char* sd, int slen)
     dsrv.sin_port = htons(53);
     dsrv.sin_addr.s_addr = inet_addr(srv);
 
-    if ((skfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+    if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
         printf("socket error\n");
         return -1;

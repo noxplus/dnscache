@@ -16,14 +16,14 @@ vpath %.o $(OBJ)
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 
-target=tgg transdns rbtree
+target=transdns
 
 none:
-	@echo all target $(target)
+	@echo all target: $(target)
 obj:$(addsuffix .o, $(target))
-	@echo make all
+	@echo make all obj-file
 bin:$(target)
-	@echo make all target
+	@echo make all bin-file
 
 %.o:%.c
 	gcc -o $(OBJ)/$@ -c $^ $(CFLAG) $(DFLAG)
