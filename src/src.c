@@ -17,12 +17,19 @@
 
 #include "inc.h"
 
+void* srvfunc(void* arg)
+{
+    LocalQuery query = (LocalQuery*)arg;
+}
+
 void startwork(void)
 {
-    int     skfd, iret;
+    int     skfd, iret, len;
     fd_set  fdread;
     struct timeval  timeout;
     struct sockaddr_in lsrv;
+
+    LocalQuery  *query;
 
     if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
@@ -54,8 +61,15 @@ void startwork(void)
         }
         if (iret == 0) continue; //timeout
         if (FD_ISSET(skfd, &fdread) == 0) continue;//other
-        recvfrom(skfd, buf, 1024, 0 , NULL, NULL);
-//        createthread
+        query = (LocalQuery*) malloc (sizeof(LocalQuery));
+        bzero(&query, sizeof(query));
+        iret = recvfrom(skfd, query->data, sizeof(query->data), 0 , &(query->localadd), &len);
+        if (iret > 0)
+        {
+            pthread_t tid;
+            query.dlen = iret;
+            pthread_create(&tid, NULL, srvfunc, (void*)query);
+        }
     }
 }
 

@@ -5,16 +5,6 @@
 #define  LEFT   0x2 //ดฮตอ1bit
 #define  RIGHT  0x0
 
-uint32 random32(void)
-{
-    uint32 uiret = 0;
-    int fd = open("/dev/urandom", O_RDONLY);
-    read(fd, &uiret, sizeof(uiret));
-    close(fd);
-
-    return uiret;
-}
-
 #define SetBlack(node) (node->Color &= ~RED)
 #define SetRed(node) (node->Color |= RED)
 #define SetLeft(node) (node->Color |= LEFT)
@@ -221,7 +211,7 @@ int insert(RBRoot* TreeRoot, RBNode* nNode)
     return CheckNode(TreeRoot, nNode);
 }
 
-int search(RBRoot* TreeRoot, int key)
+void* search(RBRoot* TreeRoot, int key)
 {
     RBNode*     pNode = TreeRoot->Root;
     RBNode      sNode;
@@ -301,6 +291,7 @@ void traver(RBRoot* TreeRoot)
     printf("~fin~\n");
 }
 
+#ifdef ONLY_RUN
 int main(int argc, char** argv)
 {
     int i = atoi(argv[1]);
@@ -321,3 +312,4 @@ int main(int argc, char** argv)
     traver(&root);
     return 0;
 }
+#endif

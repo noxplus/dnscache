@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 #include <errno.h>
 
 typedef signed long     int32;
@@ -99,10 +100,17 @@ struct _tp_rbtree_node
     RBNode*     Parent;
     RBNode*     Left;
     RBNode*     Right;
-    uint32      Key;
+    void*       store;
     uint32      Color;
 };
 typedef struct _tp_rbtree_root
 {
     RBNode*     Root;
 }RBRoot;
+
+typedef struct _tp_local_query
+{
+    struct sockaddr_in localadd;
+    uint16  dlen;
+    char    data[512];
+}LocalQuery;

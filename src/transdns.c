@@ -200,7 +200,7 @@ void gendata()
     udpquery(data, ilen+sizeof(DnsHead));
 }
 
-
+#ifdef ONLY_RUN
 //参数：目标域名
 int main(int argc, char** argv)
 {
@@ -208,3 +208,4 @@ int main(int argc, char** argv)
     gendata();
     return 0;
 }
+#endif
