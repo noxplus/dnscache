@@ -17,6 +17,8 @@ typedef unsigned long   uint32;
 typedef unsigned short  uint16;
 typedef unsigned char   uint8;
 
+#define NAMEMAXLEN  64
+
 #define PACKED __attribute__((packed))
 
 typedef union _tp_IPv4
@@ -65,14 +67,14 @@ typedef struct _tp_dns_head
 typedef struct _tp_dns_qrecd
 {
     uint8   namelen;
-    char    name[64];
+    char    name[NAMEMAXLEN];
     uint16  type;
     uint16  class;
 }Query;
 typedef struct _tp_dns_arecd
 {
     uint8   namelen;
-    char    name[64];
+    char    name[NAMEMAXLEN];
     uint16  type;
     uint16  class;
     uint32  ttl;
@@ -87,11 +89,11 @@ typedef struct _tp_dns_recode
     int32 ttl;      //dns time to live
     union _un_name
     {
-        char cname[16];
-        int32 iname[4];
+        char cname[NAMEMAXLEN];
+        int32 iname[NAMEMAXLEN/sizeof(int32)];
     }uname;
     IPv4 ip;
-}DNS_Recode, *pDNS_Recode;
+}DNSRecode, *pDNSRecode;
 
 
 typedef struct _tp_rbtree_node RBNode;
@@ -100,7 +102,7 @@ struct _tp_rbtree_node
     RBNode*     Parent;
     RBNode*     Left;
     RBNode*     Right;
-    void*       store;
+    DNSRecode*  Value;
     uint32      Color;
 };
 typedef struct _tp_rbtree_root
@@ -114,3 +116,10 @@ typedef struct _tp_local_query
     uint16  dlen;
     char    data[512];
 }LocalQuery;
+
+//RBTree
+void* RBTreeSearch(RBRoot*, DNSRecode*);
+int RBTreeInsert(RBRoot*, DNSRecode*);
+
+//test google
+

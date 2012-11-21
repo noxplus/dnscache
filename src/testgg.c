@@ -10,13 +10,9 @@
 #define conn_TIMES      4       //连接次数
 #define ssl_TIMEOUT     1000    //ssl超时 单位:ms
 
-#ifdef ONLY_RUN
-#define gaddCNT         3
-char*   gadd[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
-
-IPv4    IPh[gaddCNT];
-IPv4    Mask[gaddCNT];
-#endif
+static int      GAddrCnt = 0;
+static IPv4*    IPh = NULL;
+static IPv4*    Mask = NULL;
 
 bool SetSocketBlock(int fd, bool block)//true/false
 {
@@ -134,13 +130,15 @@ int tconn(unsigned int tip)
     return conn_TIMEOUT;
 }
 
-unsigned int genIP(void)
+unsigned int initTest(int Cnt, char** list)
 {
     unsigned int a,b,c,d,l;
     int i;
-    for (i = 0; i < gaddCNT; i++)
+    IPh = (IPv4*)malloc(Cnt * sizeof(IPv4));
+    Mask = (IPv4*)malloc(Cnt * sizeof(IPv4));
+    for (i = 0; i < Cnt; i++)
     {
-        if (sscanf(gadd[i], "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
+        if (sscanf(list[i], "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
         {
             break;
         }
@@ -163,29 +161,20 @@ unsigned int genIP(void)
 #ifdef ONLY_RUN
 int main(int argc, char** argv)
 {
+    char *address[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
     int i = 0, isel, timet;
     unsigned int rand;
     IPv4 tip;
 
     if (argc != 1)
     {
-        int i;
-        for (i = 1; i < argc; i++)
-        {
-            tip.ipv4 = inet_addr(argv[i]);
-            printf("will [%d][%d.%d.%d.%d]\t", i-1, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
-            timet = tconn(tip.ipv4);
-            if (timet > 0 && timet < 500)
-            {
-                printf("[%d][%d.%d.%d.%d]+[.%d]\n", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
-            }
-            else printf("fail\n");
-        }
-
-        return 0;
+        initTest(argc - 1, argv+1);
+    }
+    else
+    {
+        initTest(3, address);
     }
 
-    genIP();
     for (i = 0; i < 100; i++)
     {
         rand = random32();

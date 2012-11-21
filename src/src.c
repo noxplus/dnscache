@@ -19,32 +19,34 @@
 
 void* srvfunc(void* arg)
 {
-    LocalQuery query = (LocalQuery*)arg;
+    LocalQuery* query = (LocalQuery*)arg;
+    return NULL;
 }
 
 void startwork(void)
 {
-    int     skfd, iret, len;
+    int     skfd, iret;
     fd_set  fdread;
     struct timeval  timeout;
     struct sockaddr_in lsrv;
+    socklen_t   len;
 
     LocalQuery  *query;
 
     if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
         printf("socket error\n");
-        retuen;
+        return;
     }
-    bzero(&lsr, sizeof(lsrv));
+    bzero(&lsrv, sizeof(lsrv));
     lsrv.sin_family = AF_INET;
     lsrv.sin_port = htons(53);
     lsrv.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    if (bind(skfd, &lsrv, sizeof(lsrv)) == -1)
+    if (bind(skfd, (struct sockaddr*)&lsrv, sizeof(lsrv)) == -1)
     {
         printf("bind error\n");
-        retuen;
+        return;
     }
 
     while(1)
@@ -53,7 +55,7 @@ void startwork(void)
         timeout.tv_usec = 0;
         FD_ZERO(&fdread);
         FD_SET(skfd, &fdread);
-        iret = select(skfd+1, &rdread, NULL, NULL, &timeout);
+        iret = select(skfd+1, &fdread, NULL, NULL, &timeout);
         if (iret < 0)
         {
             printf("select error\n");
@@ -63,11 +65,11 @@ void startwork(void)
         if (FD_ISSET(skfd, &fdread) == 0) continue;//other
         query = (LocalQuery*) malloc (sizeof(LocalQuery));
         bzero(&query, sizeof(query));
-        iret = recvfrom(skfd, query->data, sizeof(query->data), 0 , &(query->localadd), &len);
+        iret = recvfrom(skfd, query->data, sizeof(query->data), 0 , (struct sockaddr*)&(query->localadd), &len);
         if (iret > 0)
         {
             pthread_t tid;
-            query.dlen = iret;
+            query->dlen = iret;
             pthread_create(&tid, NULL, srvfunc, (void*)query);
         }
     }

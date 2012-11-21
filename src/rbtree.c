@@ -21,9 +21,12 @@ int GetLeftRight(RBNode* node)
     return node->Color & LEFT;
 }
 
-int Diff(RBNode* node1, RBNode* node2)
+int Comp(DNSRecode* val1, DNSRecode* val2)
 {
-    return node1->Key - node2->Key;
+    if (val1->index != val2->index)
+        return val1->index - val2->index;
+
+    return strncmp(val1->uname.cname, val2->uname.cname, NAMEMAXLEN);
 }
 
 void LeftRote(RBRoot* TreeRoot, RBNode* node)
@@ -165,18 +168,22 @@ int CheckNode(RBRoot* TreeRoot, RBNode* nNode)
     return 0;//
 }
 
-int insert(RBRoot* TreeRoot, RBNode* nNode)
+//插入：有相同的则覆盖，否则插入新节点
+int RBTreeInsert(RBRoot* TreeRoot, DNSRecode* nVal)
 {
-    RBNode*     pNode = TreeRoot->Root;
+    RBNode* pNode = TreeRoot->Root;
+    RBNode* nNode = NULL;
 
-    //init
-    nNode->Parent = NULL;
-    nNode->Left = NULL;
-    nNode->Right = NULL;
-    SetRed(nNode);
+    int iret = 0;
 
     if (TreeRoot->Root == NULL)
     {
+        nNode = (RBNode*)malloc(sizeof(RBNode));
+        nNode->Value = (DNSRecode*)malloc(sizeof(DNSRecode));
+        memcpy(nNode->Value, nVal, sizeof(DNSRecode));
+        nNode->Parent = NULL;
+        nNode->Left = NULL;
+        nNode->Right = NULL;
         TreeRoot->Root = nNode;
         SetBlack(nNode);
         return 0;
@@ -184,12 +191,24 @@ int insert(RBRoot* TreeRoot, RBNode* nNode)
 
     for(;;)
     {
-        if (Diff(pNode, nNode) < 0)
+        iret = Comp(pNode->Value, nVal);
+        if (iret == 0)//相同，覆盖内容
+        {
+            memcpy(pNode->Value, nVal, sizeof(DNSRecode));
+            return 0;
+        }
+        else if (iret < 0)
         {
             if (pNode->Right == NULL)
             {
+                nNode = (RBNode*)malloc(sizeof(RBNode));
+                nNode->Value = (DNSRecode*)malloc(sizeof(DNSRecode));
+                memcpy(nNode->Value, nVal, sizeof(DNSRecode));
                 pNode->Right = nNode;
                 nNode->Parent = pNode;
+                nNode->Left = NULL;
+                nNode->Right = NULL;
+                SetRed(nNode);
                 SetRight(nNode);
                 break;
             }
@@ -199,8 +218,14 @@ int insert(RBRoot* TreeRoot, RBNode* nNode)
         {
             if (pNode->Left == NULL)
             {
+                nNode = (RBNode*)malloc(sizeof(RBNode));
+                nNode->Value = (DNSRecode*)malloc(sizeof(DNSRecode));
+                memcpy(nNode->Value, nVal, sizeof(DNSRecode));
                 pNode->Left = nNode;
                 nNode->Parent = pNode;
+                nNode->Left = NULL;
+                nNode->Right = NULL;
+                SetRed(nNode);
                 SetLeft(nNode);
                 break;
             }
@@ -211,13 +236,10 @@ int insert(RBRoot* TreeRoot, RBNode* nNode)
     return CheckNode(TreeRoot, nNode);
 }
 
-void* search(RBRoot* TreeRoot, int key)
+void* RBTreeSearch(RBRoot* TreeRoot, DNSRecode* sVal)
 {
     RBNode*     pNode = TreeRoot->Root;
-    RBNode      sNode;
-    int comp;
-
-    sNode.Key = key;
+    int iret;
 
     if (TreeRoot->Root == NULL)
     {
@@ -225,16 +247,16 @@ void* search(RBRoot* TreeRoot, int key)
     }
     for(;;)
     {
-        comp = Diff(pNode, &sNode);
-        if (comp == 0)//find!
+        iret = Comp(pNode->Value, sVal);
+        if (iret == 0)//find!
         {
-            return pNode->Key;
+            return pNode->Value;
         }
-        else if (comp < 0)
+        else if (iret < 0)
         {
             if (pNode->Right == NULL)
             {
-                return 0;
+                return NULL;
             }
             pNode = pNode->Right;
         }
@@ -242,7 +264,7 @@ void* search(RBRoot* TreeRoot, int key)
         {
             if (pNode->Left == NULL)
             {
-                return 0;
+                return NULL;
             }
             pNode = pNode->Left;
         }
@@ -257,7 +279,7 @@ void traver(RBRoot* TreeRoot)
     RBNode* prev = NULL;
     RBNode* next = NULL;
     if (TreeRoot->Root == NULL) printf("trav: root = NULL\n");
-    else printf("trav: root = %03ld\n", TreeRoot->Root->Key);
+    else printf("trav: root = %03ld\n", TreeRoot->Root->Color);
     while(node != NULL)
     {
         if (prev == node->Parent)
@@ -272,9 +294,9 @@ void traver(RBRoot* TreeRoot)
             for (i = 0; i < ldeep; i++)
                 printf("   ");
             if (GetColor(node) == RED)
-                printf("\033[0;31m%03ld\033[m\n", node->Key);
+                printf("\033[0;31m%03ld\033[m\n", node->Color);
             else
-                printf("\033[0;32m%03ld\033[m\n", node->Key);
+                printf("\033[0;32m%03ld\033[m\n", node->Color);
             prev = node;
             next = node->Right;
             deep = ldeep + 1;
@@ -306,7 +328,7 @@ int main(int argc, char** argv)
 //        printf("%03lu ", node->Key);
 //        printf("input:");
 //        scanf("%lu", &node->Key);
-        insert(&root, node);
+        RBTreeInsert(&root, node);
     }
 //    printf("\n");
     traver(&root);
