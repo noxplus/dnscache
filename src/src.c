@@ -17,12 +17,22 @@
 
 #include "inc.h"
 
+//线程函数
+//1、解析查询内容。
+//2、在缓存中查找。//两棵树上都要找。按需反馈
+//3、如果不存在，或者ttl超时，在srv树上找dns服务器，网络查询。
+//4、解析查询结果，更新/插入缓存。按需反馈。
 void* srvfunc(void* arg)
 {
+    int iQue;
     LocalQuery* query = (LocalQuery*)arg;
+
+    iQue = unpackQuery(query->data, querys);
+
     return NULL;
 }
 
+//初始化 & 监听端口 & 收取数据，新建线程处理数据
 void startwork(void)
 {
     int     skfd, iret;
@@ -51,7 +61,7 @@ void startwork(void)
 
     while(1)
     {
-        timeout.tv_sec = 1;
+        timeout.tv_sec = 5;
         timeout.tv_usec = 0;
         FD_ZERO(&fdread);
         FD_SET(skfd, &fdread);
@@ -63,6 +73,8 @@ void startwork(void)
         }
         if (iret == 0) continue; //timeout
         if (FD_ISSET(skfd, &fdread) == 0) continue;//other
+
+        //这里只负责申请空间。使用完毕之后，线程内释放空间！
         query = (LocalQuery*) malloc (sizeof(LocalQuery));
         bzero(&query, sizeof(query));
         iret = recvfrom(skfd, query->data, sizeof(query->data), 0 , (struct sockaddr*)&(query->localadd), &len);
@@ -75,6 +87,7 @@ void startwork(void)
     }
 }
 
+//读取配置文件，生成全局量初值。
 void readcfg(void)
 {}
 

@@ -12,39 +12,96 @@ char* qry = "www.google.com";
 
 char data[1024];
 
-int gq(char* dst, char* src)
+//地址格式转换：可视 => dns存储格式
+//aa.bbb.cd => 2aa3bbb2cd
+int addr2dns(char* dns, char* addr)
 {
     int i = 0, l = 0;
-    while(*src)
+    while(*addr)
     {
         if (++i == 63) break;
-        if (*src == '.')
+        if (*addr == '.')
         {
-            dst[l] = i - l - 1;
+            dns[l] = i - l - 1;
             l = i;
-            src++;
+            addr++;
             continue;
         }
-        dst[i] = *src;
-        src++;
+        dns[i] = *addr;
+        addr++;
     }
-    dst[l] = i - l;
-    dst[i + 1] = 0;
-    dst[i+1+1] = 0x00;
-    dst[i+1+2] = 0x01;//type = 0x0001 netbyte
-    dst[i+1+3] = 0x00;
-    dst[i+1+4] = 0x01;//class = 0x0001 netbyte
+    dns[l] = i - l;
+    dns[i + 1] = 0;
+    dns[i+1+1] = 0x00;
+    dns[i+1+2] = 0x01;//type = 0x0001 netbyte
+    dns[i+1+3] = 0x00;
+    dns[i+1+4] = 0x01;//class = 0x0001 netbyte
     return i + 6;
 }
-int addtree(char* name, uint32 addr)
+int dns2addr(char* dns, char* addr)
 {
-    IPv4 ip;
-    ip.ipv4 = addr;
-    printf("[%s] = [%d.%d.%d.%d]\n", name, ip.ipc[3], ip.ipc[2],ip.ipc[1], ip.ipc[0]);
     return 0;
 }
 
-int unpackdns(char * buf)
+//生成域名的序号
+uint32 GenIndex(DNSRecode* rec)
+{
+    uint32 Index = 0;
+    int i;
+    for (i = 0; i < 4; i++)
+    {
+        Index ^= rec.uname.iname[i];
+    }
+
+    rec.index = Index;
+    return Index;
+}
+
+//解析报文内容，放置查询请求地址到query地址里。
+//本函数malloc空间，外部调用负责释放
+int unpackQuery(char* buf, Query** query)
+{
+    int i;
+    DnsHead *pHead = (DnsHead*)buf;
+    char *cur = buf+sizeof(DnsHead);
+    char *str;
+    Query* qry = NULL;
+    int offset, iQue;
+
+    printf("ques=%d, ans=%d\n", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    iQue = ntohs(pHead->Quests);
+    *query = qry = (Query*)malloc(sizeof(Query));
+    bzero(qry, iQue*sizeof(Query));
+
+    for (i = 0; i < iQue; i++)
+    {
+        str = cur;
+        offset = 0;
+        while (*str != 0x00)
+        {
+            if ((*str & 0xc0) == 0xc0)
+            {
+                if (offset == 0) cur++;
+                offset = (*str&0x03)*256 + *(str+1);
+                str = buf+offset;
+            }
+            if (offset == 0) cur += *str + 1;
+            memcpy(qry[i].name+qry[i].namelen, str, *str+1);
+            qry[i].namelen += *str+1;
+            str += *str+1;
+        }
+        cur++;
+        qry[i].type = ntohs(*((short*)cur));
+        cur+=2;
+        qry[i].class = ntohs(*((short*)cur));
+        cur += 2;
+    }
+
+    return iQue;
+}
+
+//申请的空间外部负责释放！
+int unpackAnswer(char* buf, Query** qry, Answer** ans)
 {
     int i;
     DnsHead *pHead = (DnsHead*)buf;
@@ -57,7 +114,7 @@ int unpackdns(char * buf)
     Answer* answer = NULL;
 
     iQue = ntohs(pHead->Quests);
-    query = (Query*)malloc(sizeof(Query));
+    *qry = query = (Query*)malloc(sizeof(Query));
     bzero(query, iQue*sizeof(Query));
 
     for (i = 0; i < iQue; i++)
@@ -85,7 +142,7 @@ int unpackdns(char * buf)
     }
 
     iAns = ntohs(pHead->Ansers);
-    answer = (Answer*)malloc(sizeof(Answer));
+    *ans = answer = (Answer*)malloc(sizeof(Answer));
     bzero(answer, iAns*sizeof(Answer));
 
     for (i = 0; i < iAns; i++)
@@ -119,7 +176,6 @@ int unpackdns(char * buf)
         cur += answer[i].Addlen;
         if (answer[i].Addlen == 4 && answer[i].type == 0x01 && answer[i].class == 0x01)
         {
-            addtree(query[0].name, answer[i].ipadd.ipv4);
             return 1;
         }
         printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].class, answer[i].ttl, answer[i].Addlen);
