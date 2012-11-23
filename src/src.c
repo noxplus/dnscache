@@ -25,9 +25,24 @@
 void* srvfunc(void* arg)
 {
     int iQue;
+    DNSRecode rec, *sch;
     LocalQuery* query = (LocalQuery*)arg;
 
     iQue = unpackQuery(query->data, querys);
+    if (iQue == 0) return NULL; //暂时只处理一个结果
+    bzero(&rec, sizeof(rec));
+    memcpy(rec.uname, query->data, query->dlen);
+    GenIndex(&rec);
+    sch = RBTreeSearch(host_add, rec);
+    if (sch != NULL)//找到结果，发送回去
+    {
+        packAnswer(sch);
+        if (sch->ttl > time(NULL))//未超时，查询结束
+        {
+            return NULL;
+        }
+    }
+    udpquery();
 
     return NULL;
 }
