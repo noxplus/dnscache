@@ -1,19 +1,19 @@
 #include "inc.h"
 
-#define  RED    0x1 //ื๎ตอ1bit
-#define  BLACK  0x0
+#define  CRED   0x1 //ื๎ตอ1bit
+#define  CBLACK 0x0
 #define  LEFT   0x2 //ดฮตอ1bit
 #define  RIGHT  0x0
 
-#define SetBlack(node) (node->Color &= ~RED)
-#define SetRed(node) (node->Color |= RED)
+#define SetBlack(node) (node->Color &= ~CRED)
+#define SetRed(node) (node->Color |= CRED)
 #define SetLeft(node) (node->Color |= LEFT)
 #define SetRight(node) (node->Color &= ~LEFT)
 
 int GetColor(RBNode* node)
 {
-    if (node == NULL) return BLACK;
-    return node->Color & RED;
+    if (node == NULL) return CBLACK;
+    return node->Color & CRED;
 }
 int GetLeftRight(RBNode* node)
 {
@@ -120,11 +120,11 @@ int CheckNode(RBRoot* TreeRoot, RBNode* nNode)
         SetBlack(nNode);
         return 0;
     }
-    if (GetColor(nNode) == BLACK || GetColor(pNode) == BLACK) return 0;
+    if (GetColor(nNode) == CBLACK || GetColor(pNode) == CBLACK) return 0;
 
     RBNode*     gNode = pNode->Parent;
 
-    if (GetColor(gNode->Left) == RED && GetColor(gNode->Right) == RED)
+    if (GetColor(gNode->Left) == CRED && GetColor(gNode->Right) == CRED)
     {
         SetBlack(gNode->Left);
         SetBlack(gNode->Right);
@@ -293,7 +293,7 @@ void traver(RBRoot* TreeRoot)
             int i;
             for (i = 0; i < ldeep; i++)
                 printf("   ");
-            if (GetColor(node) == RED)
+            if (GetColor(node) == CRED)
                 printf("\033[0;31m%03ld\033[m\n", node->Color);
             else
                 printf("\033[0;32m%03ld\033[m\n", node->Color);

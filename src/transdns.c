@@ -38,7 +38,7 @@ int addr2dns(char* dns, char* addr)
     dns[i+1+4] = 0x01;//class = 0x0001 netbyte
     return i + 6;
 }
-int dns2addr(char* dns, char* addr)
+int dns2addr(char* addr, char* dns)
 {
     return 0;
 }
@@ -50,15 +50,15 @@ uint32 GenIndex(DNSRecode* rec)
     int i;
     for (i = 0; i < 4; i++)
     {
-        Index ^= rec.uname.iname[i];
+        Index ^= rec->uname.iname[i];
     }
 
-    rec.index = Index;
+    rec->index = Index;
     return Index;
 }
 
 //解析报文内容，放置查询请求地址到query地址里。
-//本函数malloc空间，外部调用负责释放
+//本函数申请空间，外部调用负责释放
 int unpackQuery(char* buf, Query** query)
 {
     int i;
@@ -70,8 +70,7 @@ int unpackQuery(char* buf, Query** query)
 
     printf("ques=%d, ans=%d\n", ntohs(pHead->Quests), ntohs(pHead->Ansers));
     iQue = ntohs(pHead->Quests);
-    *query = qry = (Query*)malloc(sizeof(Query));
-    bzero(qry, iQue*sizeof(Query));
+    *query = qry = (Query*)calloc(iQue, sizeof(Query));
 
     for (i = 0; i < iQue; i++)
     {
@@ -101,7 +100,7 @@ int unpackQuery(char* buf, Query** query)
 }
 
 //申请的空间外部负责释放！
-int unpackAnswer(char* buf, Query** qry, Answer** ans)
+int unpackAnswer(char* buf, Answer** ans)
 {
     int i;
     DnsHead *pHead = (DnsHead*)buf;
@@ -114,8 +113,7 @@ int unpackAnswer(char* buf, Query** qry, Answer** ans)
     Answer* answer = NULL;
 
     iQue = ntohs(pHead->Quests);
-    *qry = query = (Query*)malloc(sizeof(Query));
-    bzero(query, iQue*sizeof(Query));
+    query = (Query*)calloc(iQue, sizeof(Query));
 
     for (i = 0; i < iQue; i++)
     {
@@ -141,9 +139,11 @@ int unpackAnswer(char* buf, Query** qry, Answer** ans)
         cur += 2;
     }
 
+    free(query);//查询的结果没什么用
+    query = NULL;
+
     iAns = ntohs(pHead->Ansers);
-    *ans = answer = (Answer*)malloc(sizeof(Answer));
-    bzero(answer, iAns*sizeof(Answer));
+    *ans = answer = (Answer*)calloc(iAns, sizeof(Answer));
 
     for (i = 0; i < iAns; i++)
     {
@@ -176,7 +176,7 @@ int unpackAnswer(char* buf, Query** qry, Answer** ans)
         cur += answer[i].Addlen;
         if (answer[i].Addlen == 4 && answer[i].type == 0x01 && answer[i].class == 0x01)
         {
-            return 1;
+            return i;
         }
         printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].class, answer[i].ttl, answer[i].Addlen);
     }
@@ -227,9 +227,11 @@ int udpquery(char* sd, int slen)
     select(skfd+1, &fdset, NULL, NULL, &timeout);
     if (FD_ISSET(skfd, &fdset))
     {
+        Answer* ans;
         recvfrom(skfd, buf, 1024, 0, NULL, NULL);
         printf("recv ok\n");
-        unpackdns(buf);
+        unpackAnswer(buf, &ans);
+        free(ans);
     }
     else
     {
@@ -251,7 +253,7 @@ void gendata()
     dh->Ansers = htons(0x00);
     dh->Auths = htons(0x00);
     dh->Addits = htons(0x00);
-    int ilen = gq(data+sizeof(DnsHead), qry);//
+    int ilen = addr2dns(data+sizeof(DnsHead), qry);//
 
     udpquery(data, ilen+sizeof(DnsHead));
 }

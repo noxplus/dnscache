@@ -5,36 +5,36 @@ TIMEVER:=$(shell date +%s)
 BASE:=.
 SRC:=$(BASE)/src
 INC:=$(BASE)/inc
-OBJ:=$(BASE)/obj
+TMP:=$(BASE)/obj
 BIN:=$(BASE)/bin
 
 vpath %.c $(SRC)
 vpath %.cpp $(SRC)
 vpath %.h $(INC)
-vpath %.o $(OBJ)
+vpath %.o $(TMP)
 
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 
-target=util rbtree testgg transdns src
+TARGET=util rbtree testgg transdns src
 
 none:
-	@echo all target: $(target)
-obj:$(addsuffix .o, $(target))
+	@echo all target: $(TARGET)
+obj:$(addsuffix .o, $(TARGET))
 	@echo make all obj-file
-bin:$(addsuffix .o, $(target))
+bin:$(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	gcc -o $(BIN)/dnscache $< $(LFLAG)
 
-%.o:%.c
-	gcc -o $(OBJ)/$@ -c $^ $(CFLAG) $(DFLAG)
-%.o:%.cpp
-	g++ -o $(OBJ)/$@ -c $^ $(CFLAG) $(DFLAG)
+%:%.c inc.h
+	gcc -o $@ $< -DONLY_RUN $(CFLAG) $(DFLAG)
 
-%:%.o
-	gcc -o $(BIN)/$@ $^
+%.o:%.c inc.h
+	gcc -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
+%.o:%.cpp inc.h
+	g++ -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
 rebuild:clean obj bin
 
 clean:
-	@-rm -f $(BIN)/* $(OBJ)/*.o
+	@-rm -f $(BIN)/* $(TMP)/*.o
