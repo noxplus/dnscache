@@ -15,6 +15,7 @@ vpath %.o $(TMP)
 
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
+LFLAG:=-lpthread
 
 TARGET=util rbtree testgg transdns src
 
@@ -22,9 +23,9 @@ none:
 	@echo all target: $(TARGET)
 obj:$(addsuffix .o, $(TARGET))
 	@echo make all obj-file
-bin:$(addsuffix .o, $(TARGET))
+exe:$(addsuffix .o, $(TARGET))
 	@echo make bin-file
-	gcc -o $(BIN)/dnscache $< $(LFLAG)
+	gcc -o $(BIN)/dnscache $^ $(LFLAG)
 
 %:%.c inc.h
 	gcc -o $@ $< -DONLY_RUN $(CFLAG) $(DFLAG)

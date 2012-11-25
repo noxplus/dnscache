@@ -95,7 +95,7 @@ typedef struct _tp_dns_qrecd
     char    name[NAMEMAXLEN];
     uint16  type;
     uint16  class;
-}Query;
+}QueryRec;
 typedef struct _tp_dns_arecd
 {
     uint8   namelen;
@@ -105,7 +105,7 @@ typedef struct _tp_dns_arecd
     uint32  ttl;
     uint16  Addlen;
     IPv4    ipadd;
-}Answer;
+}AnswerRec;
 
 typedef struct _tp_dns_recode
 {
@@ -152,6 +152,9 @@ int RBTreeInsert(RBRoot*, DNSRecode*);
 int addr2dns(char* dns, char* addr);
 int dns2addr(char* addr, char* dns);
 uint32 GenIndex(DNSRecode*);
-int unpackQuery(char*, Query**);
-int unpackAnswer(char*, Answer**);
-int udpquery(char*, int);
+int unpackQuery(char*, QueryRec**);
+int unpackAnswer(char*, AnswerRec**);
+int udpquery(char*, int*);
+
+//util
+int Notify(char*, int, int, char*, ...);

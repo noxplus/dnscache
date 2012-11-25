@@ -17,6 +17,11 @@
 
 #include "inc.h"
 
+static RBRoot Srv_addr;
+static RBRoot Srv_domain;
+static RBRoot Host_addr;
+static RBRoot Host_domain;
+
 //线程函数
 //1、解析查询内容。
 //2、在缓存中查找。//两棵树上都要找。按需反馈
@@ -24,25 +29,35 @@
 //4、解析查询结果，更新/插入缓存。按需反馈。
 void* srvfunc(void* arg)
 {
-    int iQue;
-    DNSRecode rec, *sch;
+    int iQue, iAns;
+    DNSRecode   rec, *search;
     LocalQuery* query = (LocalQuery*)arg;
+    QueryRec*   queryrec = NULL;
+    AnswerRec*  answerrec = NULL;
 
-    iQue = unpackQuery(query->data, querys);
-    if (iQue == 0) return NULL; //暂时只处理一个结果
+    iQue = unpackQuery(query->data, &queryrec);//解析报文，获取查询名称
+    if (iQue == 0) return NULL; //暂时只处理一个结果，即iQue == 1
     bzero(&rec, sizeof(rec));
-    memcpy(rec.uname, query->data, query->dlen);
+    memcpy(rec.uname.cname, queryrec->name, queryrec->namelen);//复制名称
+    free(queryrec);
+    queryrec = NULL;
+
     GenIndex(&rec);
-    sch = RBTreeSearch(host_add, rec);
-    if (sch != NULL)//找到结果，发送回去
+    search = RBTreeSearch(&Host_addr, &rec);//在树上查找是否存在
+    if (search != NULL)//找到结果，发送回去
     {
-        packAnswer(sch);
-        if (sch->ttl > time(NULL))//未超时，查询结束
+        //packAnswer(search);
+        if (search->ttl > time(NULL))//未超时，查询结束
         {
             return NULL;
         }
     }
-    udpquery();
+
+    //修改流程，udpquery返回字符串。再在这里调用unpackAnswer
+    udpquery(query->data, (int*)&(query->dlen));//网络查询，结果反馈客户端
+    unpackAnswer(query->data, &answerrec);//结果上树。
+
+    Notify(__FILE__, __LINE__, PRT_INFO, "");
 
     return NULL;
 }
@@ -51,16 +66,16 @@ void* srvfunc(void* arg)
 void startwork(void)
 {
     int     skfd, iret;
+    socklen_t    ilen;
     fd_set  fdread;
     struct timeval  timeout;
     struct sockaddr_in lsrv;
-    socklen_t   len;
 
     LocalQuery  *query;
 
     if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
-        printf("socket error\n");
+        Notify(__FILE__, __LINE__, PRT_INFO, "socket error[%d:%s]", errno, strerror(errno));
         return;
     }
     bzero(&lsrv, sizeof(lsrv));
@@ -70,7 +85,7 @@ void startwork(void)
 
     if (bind(skfd, (struct sockaddr*)&lsrv, sizeof(lsrv)) == -1)
     {
-        printf("bind error\n");
+        Notify(__FILE__, __LINE__, PRT_INFO, "bind error[%d:%s]", errno, strerror(errno));
         return;
     }
 
@@ -83,7 +98,7 @@ void startwork(void)
         iret = select(skfd+1, &fdread, NULL, NULL, &timeout);
         if (iret < 0)
         {
-            printf("select error\n");
+            Notify(__FILE__, __LINE__, PRT_INFO, "select error[%d:%s]", errno, strerror(errno));
             return;
         }
         if (iret == 0) continue; //timeout
@@ -91,8 +106,10 @@ void startwork(void)
 
         //这里只负责申请空间。使用完毕之后，线程内释放空间！
         query = (LocalQuery*) malloc (sizeof(LocalQuery));
-        bzero(&query, sizeof(query));
-        iret = recvfrom(skfd, query->data, sizeof(query->data), 0 , (struct sockaddr*)&(query->localadd), &len);
+        bzero(query, sizeof(query));
+        ilen = sizeof(query->localadd);
+        iret = recvfrom(skfd, query->data, 512, 0, (struct sockaddr*)&(query->localadd), &ilen);
+
         if (iret > 0)
         {
             pthread_t tid;
@@ -106,5 +123,18 @@ void startwork(void)
 void readcfg(void)
 {}
 
+void init(void)
+{
+    Srv_addr.Root = NULL;
+    Srv_domain.Root = NULL;
+    Host_addr.Root = NULL;
+    Host_domain.Root = NULL;
+}
+
 int main()
-{}
+{
+    init();
+    startwork();
+
+    return 0;
+}

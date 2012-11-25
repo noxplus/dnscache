@@ -7,10 +7,10 @@
 
 #include "inc.h"
 
-char* srv = "8.8.8.8";//默认使用google dns。后续加入配置文件
-char* qry = "www.google.com";
+static char* srv = "8.8.8.8";//默认使用google dns。后续加入配置文件
+static char* qry = "www.google.com";
 
-char data[1024];
+static char data[1024];
 
 //地址格式转换：可视 => dns存储格式
 //aa.bbb.cd => 2aa3bbb2cd
@@ -59,18 +59,18 @@ uint32 GenIndex(DNSRecode* rec)
 
 //解析报文内容，放置查询请求地址到query地址里。
 //本函数申请空间，外部调用负责释放
-int unpackQuery(char* buf, Query** query)
+int unpackQuery(char* buf, QueryRec** query)
 {
     int i;
     DnsHead *pHead = (DnsHead*)buf;
     char *cur = buf+sizeof(DnsHead);
     char *str;
-    Query* qry = NULL;
+    QueryRec* qry = NULL;
     int offset, iQue;
 
-    printf("ques=%d, ans=%d\n", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
     iQue = ntohs(pHead->Quests);
-    *query = qry = (Query*)calloc(iQue, sizeof(Query));
+    *query = qry = (QueryRec*)calloc(iQue, sizeof(QueryRec));
 
     for (i = 0; i < iQue; i++)
     {
@@ -95,12 +95,13 @@ int unpackQuery(char* buf, Query** query)
         qry[i].class = ntohs(*((short*)cur));
         cur += 2;
     }
+    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%s", qry->name);
 
     return iQue;
 }
 
 //申请的空间外部负责释放！
-int unpackAnswer(char* buf, Answer** ans)
+int unpackAnswer(char* buf, AnswerRec** ans)
 {
     int i;
     DnsHead *pHead = (DnsHead*)buf;
@@ -109,11 +110,11 @@ int unpackAnswer(char* buf, Answer** ans)
     char *str;
     int offset, iQue, iAns;
 
-    Query* query = NULL;
-    Answer* answer = NULL;
+    QueryRec* query = NULL;
+    AnswerRec* answer = NULL;
 
     iQue = ntohs(pHead->Quests);
-    query = (Query*)calloc(iQue, sizeof(Query));
+    query = (QueryRec*)calloc(iQue, sizeof(QueryRec));
 
     for (i = 0; i < iQue; i++)
     {
@@ -143,7 +144,7 @@ int unpackAnswer(char* buf, Answer** ans)
     query = NULL;
 
     iAns = ntohs(pHead->Ansers);
-    *ans = answer = (Answer*)calloc(iAns, sizeof(Answer));
+    *ans = answer = (AnswerRec*)calloc(iAns, sizeof(AnswerRec));
 
     for (i = 0; i < iAns; i++)
     {
@@ -183,10 +184,9 @@ int unpackAnswer(char* buf, Answer** ans)
     return 0;
 }
 
-int udpquery(char* sd, int slen)
+int udpquery(char* sbuf, int* slen)
 { 
-    char buf[1024];
-    int skfd = -1;
+    int skfd = -1, iret;
     struct sockaddr_in dsrv;
     struct timeval timeout;
     fd_set fdset;
@@ -199,11 +199,10 @@ int udpquery(char* sd, int slen)
 
     if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
-        printf("socket error\n");
+        Notify(__FILE__, __LINE__, PRT_INFO, "socket error[%d:%s]", errno, strerror(errno));
         return -1;
     }
 
-    printf("will send\n");
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
     FD_ZERO(&fdset);
@@ -211,34 +210,41 @@ int udpquery(char* sd, int slen)
     select(skfd+1, NULL, &fdset, NULL, &timeout);
     if (FD_ISSET(skfd, &fdset))
     {
-        sendto(skfd, sd, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
-        printf("send ok\n");
+        sendto(skfd, sbuf, *slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
     }
     else
     {
-        printf("select error\n");
+        Notify(__FILE__, __LINE__, PRT_INFO, "send select error[%d:%s]", errno, strerror(errno));
         close(skfd);
         return 1;
     }
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
-    FD_ZERO(&fdset);
-    FD_SET(skfd, &fdset);
-    select(skfd+1, &fdset, NULL, NULL, &timeout);
-    if (FD_ISSET(skfd, &fdset))
+    while (timeout.tv_sec !=0 || timeout.tv_usec != 0)
     {
-        Answer* ans;
-        recvfrom(skfd, buf, 1024, 0, NULL, NULL);
-        printf("recv ok\n");
-        unpackAnswer(buf, &ans);
-        free(ans);
+        FD_ZERO(&fdset);
+        FD_SET(skfd, &fdset);
+        iret = select(skfd+1, &fdset, NULL, NULL, &timeout);
+        if (iret = 0)
+        {
+            Notify(__FILE__, __LINE__, PRT_INFO, "recv select timeout");
+            close(skfd);
+            return 2;
+        }
+        if (iret < 0)
+        {
+            Notify(__FILE__, __LINE__, PRT_INFO, "recv select error[%d:%s]", errno, strerror(errno));
+            close(skfd);
+            return 2;
+        }
+        if (!FD_ISSET(skfd, &fdset))
+        {
+            Notify(__FILE__, __LINE__, PRT_INFO, "recv select not set");
+        }
+        else break;
     }
-    else
-    {
-        printf("recv select error\n");
-        close(skfd);
-        return 2;
-    }
+    *slen = recvfrom(skfd, sbuf, 512, 0, NULL, NULL);
+    Notify(__FILE__, __LINE__, PRT_INFO, "recv[%d]", *slen);
 
     close(skfd);
     return 0;
