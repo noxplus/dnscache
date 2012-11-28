@@ -7,7 +7,7 @@
 
 #include "inc.h"
 
-static char* srv = "8.8.8.8";//默认使用google dns。后续加入配置文件
+static char* srv = "172.16.40.177";//默认使用google dns。后续加入配置文件
 static char* qry = "www.google.com";
 
 static char data[1024];
@@ -149,7 +149,6 @@ int unpackAnswer(char* buf, AnswerRec** ans)
     for (i = 0; i < iAns; i++)
     {
         str = cur;
-        printf("off: %x\t", cur - buf);
         offset = 0;
         while (*str != 0x00)
         {
@@ -175,16 +174,16 @@ int unpackAnswer(char* buf, AnswerRec** ans)
         cur+=2;
         answer[i].ipadd.ipv4 = ntohl(*((unsigned long*)cur));
         cur += answer[i].Addlen;
+        printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].class, answer[i].ttl, answer[i].Addlen);
         if (answer[i].Addlen == 4 && answer[i].type == 0x01 && answer[i].class == 0x01)
         {
             return i;
         }
-        printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].class, answer[i].ttl, answer[i].Addlen);
     }
     return 0;
 }
 
-int udpquery(char* sbuf, int* slen)
+int udpquery(char* sbuf, int slen)
 { 
     int skfd = -1, iret;
     struct sockaddr_in dsrv;
@@ -210,44 +209,43 @@ int udpquery(char* sbuf, int* slen)
     select(skfd+1, NULL, &fdset, NULL, &timeout);
     if (FD_ISSET(skfd, &fdset))
     {
-        sendto(skfd, sbuf, *slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
+        iret = sendto(skfd, sbuf, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
+        Notify(__FILE__, __LINE__, PRT_INFO, "send[%d]error[%d:%s]", slen, errno, strerror(errno));
     }
     else
     {
         Notify(__FILE__, __LINE__, PRT_INFO, "send select error[%d:%s]", errno, strerror(errno));
         close(skfd);
-        return 1;
+        return -2;
     }
     timeout.tv_sec = 1;
     timeout.tv_usec = 0;
-    while (timeout.tv_sec !=0 || timeout.tv_usec != 0)
+    FD_ZERO(&fdset);
+    FD_SET(skfd, &fdset);
+    iret = select(skfd+1, &fdset, NULL, NULL, &timeout);
+    if (iret == 0)
     {
-        FD_ZERO(&fdset);
-        FD_SET(skfd, &fdset);
-        iret = select(skfd+1, &fdset, NULL, NULL, &timeout);
-        if (iret = 0)
-        {
-            Notify(__FILE__, __LINE__, PRT_INFO, "recv select timeout");
-            close(skfd);
-            return 2;
-        }
-        if (iret < 0)
-        {
-            Notify(__FILE__, __LINE__, PRT_INFO, "recv select error[%d:%s]", errno, strerror(errno));
-            close(skfd);
-            return 2;
-        }
-        if (!FD_ISSET(skfd, &fdset))
-        {
-            Notify(__FILE__, __LINE__, PRT_INFO, "recv select not set");
-        }
-        else break;
+        Notify(__FILE__, __LINE__, PRT_INFO, "recv select timeout");
+        close(skfd);
+        return -2;
     }
-    *slen = recvfrom(skfd, sbuf, 512, 0, NULL, NULL);
-    Notify(__FILE__, __LINE__, PRT_INFO, "recv[%d]", *slen);
+    if (iret < 0)
+    {
+        Notify(__FILE__, __LINE__, PRT_INFO, "recv select error[%d:%s]", errno, strerror(errno));
+        close(skfd);
+        return -3;
+    }
+    if (!FD_ISSET(skfd, &fdset))
+    {
+        Notify(__FILE__, __LINE__, PRT_INFO, "recv select not set");
+        close(skfd);
+        return -4;
+    }
+    iret = recvfrom(skfd, sbuf, 512, 0, NULL, NULL);
+    Notify(__FILE__, __LINE__, PRT_INFO, "recv[%d]", iret);
 
     close(skfd);
-    return 0;
+    return iret;
 }
 
 void gendata()

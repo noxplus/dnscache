@@ -42,6 +42,6 @@ int Notify(char* filename, int line, int level, char *fmt, ...)
     cnt = vsnprintf(strbuf, sizeof(strbuf), fmt, argptr);
     va_end(argptr);
 
-    fprintf(fp, "[%d:%d:%d.%ld][%s:%d] %s[%s] %s\033[m\n", hour, minute, second, tv.tv_usec/1000, basename(filename), line, lvlclr[level], lvlstr[level], strbuf);
+    fprintf(fp, "[%02d:%02d:%02d.%03ld][%s:%d]\t%s[%s] %s\033[m\n", hour, minute, second, tv.tv_usec/1000, basename(filename), line, lvlclr[level], lvlstr[level], strbuf);
     return cnt;
 }

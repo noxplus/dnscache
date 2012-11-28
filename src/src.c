@@ -54,10 +54,11 @@ void* srvfunc(void* arg)
     }
 
     //修改流程，udpquery返回字符串。再在这里调用unpackAnswer
-    udpquery(query->data, (int*)&(query->dlen));//网络查询，结果反馈客户端
+    iQue = udpquery(query->data, query->dlen);//网络查询，结果反馈客户端
+    query->dlen = iQue;
     unpackAnswer(query->data, &answerrec);//结果上树。
-
     Notify(__FILE__, __LINE__, PRT_INFO, "");
+    sendto(query->sktfd, query->data, query->dlen, 0, (struct sockaddr*)&(query->localadd), sizeof(query->localadd));
 
     return NULL;
 }
@@ -113,6 +114,7 @@ void startwork(void)
         if (iret > 0)
         {
             pthread_t tid;
+            query->sktfd = skfd;
             query->dlen = iret;
             pthread_create(&tid, NULL, srvfunc, (void*)query);
         }

@@ -137,6 +137,7 @@ typedef struct _tp_rbtree_root
 
 typedef struct _tp_local_query
 {
+    int     sktfd;
     struct sockaddr_in localadd;
     uint16  dlen;
     char    data[512];
@@ -154,7 +155,7 @@ int dns2addr(char* addr, char* dns);
 uint32 GenIndex(DNSRecode*);
 int unpackQuery(char*, QueryRec**);
 int unpackAnswer(char*, AnswerRec**);
-int udpquery(char*, int*);
+int udpquery(char*, int);
 
 //util
 int Notify(char*, int, int, char*, ...);
