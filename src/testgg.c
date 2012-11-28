@@ -47,7 +47,8 @@ int tssl(int sk)
     cli.CompMethLen = 0x1;
     cli.CompMeth = 0x0;
 
-    send(sk, &cli, sizeof(cli), 0);//测试成功拿到ssl证书！
+    iret = send(sk, &cli, sizeof(cli), 0);//测试成功拿到ssl证书！
+    printf("send %d [%d:%s]\n", iret, errno, strerror(errno));
 
     fd_set Read;
     struct timeval timeout;
@@ -74,6 +75,7 @@ int tssl(int sk)
 int tconn(unsigned int tip)
 {
     int skfd = -1;
+    int iret;
     struct sockaddr_in gsrv;
     IPv4 ip;
 
@@ -81,9 +83,10 @@ int tconn(unsigned int tip)
     memset(&gsrv, 0, sizeof(gsrv));
 
     gsrv.sin_family = AF_INET;
-    gsrv.sin_port = htons(443);
-    gsrv.sin_addr.s_addr = tip;
+    gsrv.sin_port = htons(18888);
+    gsrv.sin_addr.s_addr = inet_addr("127.0.0.1");//tip;
 
+    printf("in test\n");
     int i, issl = 0;
     for (i = 0; i < conn_TIMES; i++)
     {
@@ -94,10 +97,23 @@ int tconn(unsigned int tip)
         }
         SetSocketBlock(skfd, false);
 
-        if (connect(skfd, (struct sockaddr*)&gsrv, sizeof(struct sockaddr)) == -1
-                && errno != EINPROGRESS)
+        int j;
+        for (j = 0; j < 500; j++)
         {
-            SetSocketBlock(skfd, true);
+            printf("connect...%d\n", j);
+            iret = connect(skfd, (struct sockaddr*)&gsrv, sizeof(struct sockaddr));
+            if (iret == 0) break;
+            if (iret == -1 && errno != EINPROGRESS)
+            {
+                SetSocketBlock(skfd, true);
+                printf("connect [%d.%d.%d.%d] error[%d:%s]\n", ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
+                return -1;
+            }
+            usleep(10*1000);
+        }
+        printf("connect ok.%d\n", iret);
+        if (iret != 0)
+        {
             printf("connect [%d.%d.%d.%d] error[%d:%s]\n", ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
             return -1;
         }
@@ -122,6 +138,7 @@ int tconn(unsigned int tip)
         }
         else
         {
+            printf("select ..\n");
             close(skfd);
             return conn_TIMEOUT;
         }
@@ -158,7 +175,6 @@ unsigned int initTest(int Cnt, char** list)
     return i;
 }
 
-#ifdef ONLY_RUN
 int main(int argc, char** argv)
 {
     char *address[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
@@ -169,16 +185,18 @@ int main(int argc, char** argv)
     if (argc != 1)
     {
         initTest(argc - 1, argv+1);
+        GAddrCnt = argc - 1;
     }
     else
     {
         initTest(3, address);
+        GAddrCnt = 3;
     }
 
-    for (i = 0; i < 100; i++)
+    for (i = 0; i < 1; i++)
     {
         rand = random32();
-        isel = rand % gaddCNT;
+        isel = rand % GAddrCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
 
         timet = tconn(tip.ipv4);
@@ -189,4 +207,3 @@ int main(int argc, char** argv)
     }
     return 0;
 }
-#endif

@@ -7,7 +7,7 @@
 
 #include "inc.h"
 
-static char* srv = "172.16.40.177";//默认使用google dns。后续加入配置文件
+static char* srv = "172.16.40.177";//dns服务器。后续加入配置文件
 static char* qry = "www.google.com";
 
 static char data[1024];
