@@ -14,7 +14,8 @@ vpath %.h $(INC)
 vpath %.o $(TMP)
 
 CFLAG:=-Wall -O2 -I$(INC)
-DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
+DFLAG=
+#DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=-lpthread
 
 TARGET=util rbtree testgg transdns main
