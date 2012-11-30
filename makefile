@@ -17,7 +17,7 @@ CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=-lpthread
 
-TARGET=util rbtree testgg transdns src
+TARGET=util rbtree testgg transdns main
 
 none:
 	@echo all target: $(TARGET)
