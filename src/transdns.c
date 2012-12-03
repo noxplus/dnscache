@@ -7,11 +7,14 @@
 
 #include "inc.h"
 
-static char* srv = "172.16.40.177";//dns服务器。后续加入配置文件
+static char* srv = "8.8.8.8";//dns服务器。后续加入配置文件
 static char* qry = "www.google.com";
 
 static char data[1024];
 
+//dns报文采取后一种格式存储地址，并做适当压缩。
+//为了统一，内部也如此存储。
+//配置文件/外部参数使用.分割字段，加上转换函数。
 //地址格式转换：可视 => dns存储格式
 //aa.bbb.cd => 2aa3bbb2cd
 int addr2dns(char* dns, char* addr)
@@ -38,12 +41,14 @@ int addr2dns(char* dns, char* addr)
     dns[i+1+4] = 0x01;//class = 0x0001 netbyte
     return i + 6;
 }
+//地址格式转换：
+//2aa3bbb2cd => aa.bbb.cd
 int dns2addr(char* addr, char* dns)
 {
     return 0;
 }
 
-//生成域名的序号
+//生成dns记录的hash，简化比较
 uint32 GenIndex(DNSRecode* rec)
 {
     uint32 Index = 0;
@@ -57,7 +62,7 @@ uint32 GenIndex(DNSRecode* rec)
     return Index;
 }
 
-//解析报文内容，放置查询请求地址到query地址里。
+//解析报文(buf)内容，放置查询请求地址到query地址里。
 //本函数申请空间，外部调用负责释放
 int unpackQuery(char* buf, QueryRec** query)
 {
@@ -68,9 +73,16 @@ int unpackQuery(char* buf, QueryRec** query)
     QueryRec* qry = NULL;
     int offset, iQue;
 
+    if (buf == NULL)
+    {
+        Notify(__FILE__, __LINE__, PRT_INFO, "buf is null!");
+        return 0;
+    }
+
     Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
     iQue = ntohs(pHead->Quests);
-    *query = qry = (QueryRec*)calloc(iQue, sizeof(QueryRec));
+    qry = (QueryRec*)calloc(iQue, sizeof(QueryRec));
+    if (query != NULL) *query = qry;
 
     for (i = 0; i < iQue; i++)
     {
@@ -100,15 +112,22 @@ int unpackQuery(char* buf, QueryRec** query)
     return iQue;
 }
 
+//解析报文buf，解析到ans
 //申请的空间外部负责释放！
 int unpackAnswer(char* buf, AnswerRec** ans)
 {
     int i;
     DnsHead *pHead = (DnsHead*)buf;
-    printf("ques=%d, ans=%d\n", ntohs(pHead->Quests), ntohs(pHead->Ansers));
     char *cur = buf+sizeof(DnsHead);
     char *str;
     int offset, iQue, iAns;
+
+    if (buf == NULL)
+    {
+        Notify(__FILE__, __LINE__, PRT_INFO, "buf is null!");
+        return 0;
+    }
+    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
 
     QueryRec* query = NULL;
     AnswerRec* answer = NULL;
@@ -144,7 +163,8 @@ int unpackAnswer(char* buf, AnswerRec** ans)
     query = NULL;
 
     iAns = ntohs(pHead->Ansers);
-    *ans = answer = (AnswerRec*)calloc(iAns, sizeof(AnswerRec));
+    answer = (AnswerRec*)calloc(iAns, sizeof(AnswerRec));
+    if (ans != NULL) *ans = answer;
 
     for (i = 0; i < iAns; i++)
     {
@@ -183,6 +203,7 @@ int unpackAnswer(char* buf, AnswerRec** ans)
     return 0;
 }
 
+//udp查询dns
 int udpquery(char* sbuf, int slen)
 { 
     int skfd = -1, iret;

@@ -14,6 +14,7 @@ static int      GAddrCnt = 0;
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
 
+//设置socket阻塞/非阻塞
 bool SetSocketBlock(int fd, bool block)//true/false
 {
    if (fd < 0) return false;
@@ -29,6 +30,7 @@ bool SetSocketBlock(int fd, bool block)//true/false
 #endif
 }
 
+//给指定socket发送ssl 
 int tssl(int sk)
 {
     int iret;
