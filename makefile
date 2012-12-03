@@ -28,12 +28,12 @@ exe:$(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	gcc -o $(BIN)/dnscache $^ $(LFLAG)
 
-%:%.c inc.h
-	gcc -o $@ $< -DONLY_RUN $(CFLAG) $(DFLAG)
+%:%.c util.c
+	gcc -o $(BIN)/$@ $^ -DONLY_RUN $(CFLAG) $(DFLAG)
 
-%.o:%.c inc.h
+%.o:%.c
 	gcc -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
-%.o:%.cpp inc.h
+%.o:%.cpp
 	g++ -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
 rebuild:clean obj bin

@@ -5,7 +5,9 @@
  * 主要是针对https的，所以兼顾测试一下是否支持https。
  * */
 
-#include "inc.h"
+#include "util.h"
+#include "rbtree.h"
+#include "transdns.h"
 
 static char* srv = "172.16.40.177";//dns服务器。后续加入配置文件
 static char* qry = "www.google.com";
@@ -68,7 +70,7 @@ int unpackQuery(char* buf, QueryRec** query)
     QueryRec* qry = NULL;
     int offset, iQue;
 
-    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
     iQue = ntohs(pHead->Quests);
     *query = qry = (QueryRec*)calloc(iQue, sizeof(QueryRec));
 
@@ -95,7 +97,7 @@ int unpackQuery(char* buf, QueryRec** query)
         qry[i].class = ntohs(*((short*)cur));
         cur += 2;
     }
-    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%s", qry->name);
+    Notify(PRT_INFO, "ques=%s", qry->name);
 
     return iQue;
 }
@@ -198,7 +200,7 @@ int udpquery(char* sbuf, int slen)
 
     if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "socket error[%d:%s]", errno, strerror(errno));
+        Notify(PRT_INFO, "[transdns:%d] socket error[%d:%s]", __LINE__, errno, strerror(errno));
         return -1;
     }
 
@@ -210,11 +212,11 @@ int udpquery(char* sbuf, int slen)
     if (FD_ISSET(skfd, &fdset))
     {
         iret = sendto(skfd, sbuf, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
-        Notify(__FILE__, __LINE__, PRT_INFO, "send[%d]error[%d:%s]", slen, errno, strerror(errno));
+        Notify(PRT_INFO, "[transdns:%d] send[%d]error[%d:%s]", __LINE__, slen, errno, strerror(errno));
     }
     else
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "send select error[%d:%s]", errno, strerror(errno));
+        Notify(PRT_INFO, "[transdns:%d] send select error[%d:%s]", __LINE__, errno, strerror(errno));
         close(skfd);
         return -2;
     }
@@ -225,24 +227,24 @@ int udpquery(char* sbuf, int slen)
     iret = select(skfd+1, &fdset, NULL, NULL, &timeout);
     if (iret == 0)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "recv select timeout");
+        Notify(PRT_INFO, "[transdns:%d] recv select timeout", __LINE__);
         close(skfd);
         return -2;
     }
     if (iret < 0)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "recv select error[%d:%s]", errno, strerror(errno));
+        Notify(PRT_INFO, "[transdns:%d] recv select error[%d:%s]", __LINE__, errno, strerror(errno));
         close(skfd);
         return -3;
     }
     if (!FD_ISSET(skfd, &fdset))
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "recv select not set");
+        Notify(PRT_INFO, "[transdns:%d] recv select not set", __LINE__);
         close(skfd);
         return -4;
     }
     iret = recvfrom(skfd, sbuf, 512, 0, NULL, NULL);
-    Notify(__FILE__, __LINE__, PRT_INFO, "recv[%d]", iret);
+    Notify(PRT_INFO, "recv[%d]", iret);
 
     close(skfd);
     return iret;

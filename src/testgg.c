@@ -4,13 +4,13 @@
  * 三、发送ssl handshake，测试该IP地址是否支持https访问。
  * */
 
-#include "inc.h"
+#include "util.h"
+#include "testgg.h"
 
 #define conn_TIMEOUT    1000    //连接超时 单位:ms
 #define conn_TIMES      4       //连接次数
 #define ssl_TIMEOUT     1000    //ssl超时 单位:ms
 
-static int      GAddrCnt = 0;
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
 
@@ -101,7 +101,7 @@ int tconn(unsigned int tip)
     {
         if ((skfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         {
-            Notify(__FILE__, __LINE__, PRT_ERROR, "socket error\n");
+            Notify(PRT_ERROR, "[testgg:%d]socket error", __LINE__);
             return -1;
         }
         SetSocketBlock(skfd, false);
@@ -112,7 +112,7 @@ int tconn(unsigned int tip)
             if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
             {
                 SetSocketBlock(skfd, true);
-                Notify(__FILE__, __LINE__, PRT_ERROR, "[%d]connect [%d.%d.%d.%d] error[%d:%s]\n", j, ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
+                Notify(PRT_ERROR, "[testgg:%d] [%d]connect [%d.%d.%d.%d] error[%d:%s]\n", __LINE__, j, ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
                 return -1;
             }
             usleep(50 * 1000);
@@ -153,41 +153,48 @@ unsigned int initTest(int Cnt, char** list)
         Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
         if (l >= 32) Mask[i].ipv4 = 0U;
 
-        printf("IP[%lx] mask[%lx]\n", IPh[i].ipv4, Mask[i].ipv4);
+        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
     }
 
     return i;
 }
 
+#ifdef ONLY_RUN
 int main(int argc, char** argv)
 {
     char *address[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
     int i = 0, isel, timet;
     unsigned int rand;
     IPv4 tip;
+    int AddrCnt = 0;
 
     if (argc != 1)
     {
         initTest(argc - 1, argv+1);
-        GAddrCnt = argc - 1;
+        AddrCnt = argc - 1;
     }
     else
     {
         initTest(3, address);
-        GAddrCnt = 3;
+        AddrCnt = 3;
     }
 
     for (i = 0; i < 100; i++)
     {
         rand = random32();
-        isel = rand % GAddrCnt;
+        isel = rand % AddrCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
 
         timet = tconn(tip.ipv4);
         if (timet > 0 && timet < ssl_TIMEOUT)
         {
-            printf("[%d][%d.%d.%d.%d]+[.%d]\n", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
+            Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
+        }
+        else
+        {
+            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
         }
     }
     return 0;
 }
+#endif
