@@ -1,4 +1,6 @@
-#include "inc.h"
+#include "util.h"
+#include "transdns.h"
+#include "rbtree.h"
 
 #define  CRED   0x1 //ื๎ตอ1bit
 #define  CBLACK 0x0

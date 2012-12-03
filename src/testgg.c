@@ -4,13 +4,13 @@
  * 三、发送ssl handshake，测试该IP地址是否支持https访问。
  * */
 
-#include "inc.h"
+#include "util.h"
+#include "testgg.h"
 
 #define conn_TIMEOUT    1000    //连接超时 单位:ms
 #define conn_TIMES      4       //连接次数
 #define ssl_TIMEOUT     1000    //ssl超时 单位:ms
 
-static int      GAddrCnt = 0;
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
 
@@ -34,7 +34,19 @@ bool SetSocketBlock(int fd, bool block)//true/false
 int tssl(int sk)
 {
     int iret;
+    fd_set fdset;
+    struct timeval timeout;
     SSLCliHello cli;
+
+    timeout.tv_sec = ssl_TIMEOUT/1000;
+    timeout.tv_usec = ssl_TIMEOUT%1000 * 1000;
+    FD_ZERO(&fdset);
+    FD_SET(sk, &fdset);
+    select(sk+1, NULL, &fdset, NULL, &timeout);	
+    if (FD_ISSET(sk, &fdset) == 0)
+    {
+        return ssl_TIMEOUT;
+    }
 
     cli.ssl.ContentType = 22;
     cli.ssl.SSLVer = htons(0x0301);
@@ -50,18 +62,16 @@ int tssl(int sk)
     cli.CompMeth = 0x0;
 
     iret = send(sk, &cli, sizeof(cli), 0);//测试成功拿到ssl证书！
-    printf("send %d [%d:%s]\n", iret, errno, strerror(errno));
 
-    fd_set Read;
-    struct timeval timeout;
     SSLHead sslh;
     HSHead  HSh;
+
     timeout.tv_sec = ssl_TIMEOUT/1000;
     timeout.tv_usec = ssl_TIMEOUT%1000 * 1000;
-    FD_ZERO(&Read);
-    FD_SET(sk, &Read);
-    select(sk+1, &Read, NULL, NULL, &timeout);	
-    if (FD_ISSET(sk, &Read))
+    FD_ZERO(&fdset);
+    FD_SET(sk, &fdset);
+    select(sk+1, &fdset, NULL, NULL, &timeout);	
+    if (FD_ISSET(sk, &fdset))
     {
         iret = recv(sk, &sslh, sizeof(sslh), 0);
         if (iret != sizeof(sslh)) return ssl_TIMEOUT * 4;//connect reset!
@@ -85,65 +95,39 @@ int tconn(unsigned int tip)
     memset(&gsrv, 0, sizeof(gsrv));
 
     gsrv.sin_family = AF_INET;
-    gsrv.sin_port = htons(18888);
-    gsrv.sin_addr.s_addr = inet_addr("127.0.0.1");//tip;
+    gsrv.sin_port = htons(443);
+    gsrv.sin_addr.s_addr = tip;
 
-    printf("in test\n");
-    int i, issl = 0;
+    int i, j, issl = 0;
     for (i = 0; i < conn_TIMES; i++)
     {
         if ((skfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
         {
-            printf("socket error\n");
+            Notify(PRT_ERROR, "[testgg:%d]socket error", __LINE__);
             return -1;
         }
         SetSocketBlock(skfd, false);
-
-        int j;
-        for (j = 0; j < 500; j++)
+        for (j = conn_TIMEOUT; j > 0; j -= 50)
         {
-            printf("connect...%d\n", j);
             iret = connect(skfd, (struct sockaddr*)&gsrv, sizeof(struct sockaddr));
-            if (iret == 0) break;
-            if (iret == -1 && errno != EINPROGRESS)
+            if (iret == 0 || errno == EISCONN) break;//连接正常
+            if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
             {
                 SetSocketBlock(skfd, true);
-                printf("connect [%d.%d.%d.%d] error[%d:%s]\n", ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
+                Notify(PRT_ERROR, "[testgg:%d] [%d]connect [%d.%d.%d.%d] error[%d:%s]\n", __LINE__, j, ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
                 return -1;
             }
-            usleep(10*1000);
-        }
-        printf("connect ok.%d\n", iret);
-        if (iret != 0)
-        {
-            printf("connect [%d.%d.%d.%d] error[%d:%s]\n", ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
-            return -1;
+            usleep(50 * 1000);
         }
         SetSocketBlock(skfd, true);
 
-        fd_set Write;
-        struct timeval timeout;
-        timeout.tv_sec = conn_TIMEOUT/1000;
-        timeout.tv_usec = conn_TIMEOUT%1000 * 1000;
-        FD_ZERO(&Write);
-        FD_SET(skfd, &Write);
-        select(skfd+1, NULL, &Write, NULL, &timeout);	
-        if (FD_ISSET(skfd, &Write))
+        if (i == conn_TIMES - 1)//最后一次进行ssl handshake
         {
-            if (i == conn_TIMES - 1)//最后一次进行ssl handshake
-            {
-                issl = tssl(skfd);
-                close(skfd);
-                return issl;
-            }
+            issl = tssl(skfd);
             close(skfd);
+            return issl;
         }
-        else
-        {
-            printf("select ..\n");
-            close(skfd);
-            return conn_TIMEOUT;
-        }
+        close(skfd);
     }
 
     return conn_TIMEOUT;
@@ -171,41 +155,48 @@ unsigned int initTest(int Cnt, char** list)
         Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
         if (l >= 32) Mask[i].ipv4 = 0U;
 
-        printf("IP[%lx] mask[%lx]\n", IPh[i].ipv4, Mask[i].ipv4);
+        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
     }
 
     return i;
 }
 
+#ifdef ONLY_RUN
 int main(int argc, char** argv)
 {
     char *address[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
     int i = 0, isel, timet;
     unsigned int rand;
     IPv4 tip;
+    int AddrCnt = 0;
 
     if (argc != 1)
     {
         initTest(argc - 1, argv+1);
-        GAddrCnt = argc - 1;
+        AddrCnt = argc - 1;
     }
     else
     {
         initTest(3, address);
-        GAddrCnt = 3;
+        AddrCnt = 3;
     }
 
-    for (i = 0; i < 1; i++)
+    for (i = 0; i < 100; i++)
     {
         rand = random32();
-        isel = rand % GAddrCnt;
+        isel = rand % AddrCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
 
         timet = tconn(tip.ipv4);
         if (timet > 0 && timet < ssl_TIMEOUT)
         {
-            printf("[%d][%d.%d.%d.%d]+[.%d]\n", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
+            Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
+        }
+        else
+        {
+            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
         }
     }
     return 0;
 }
+#endif

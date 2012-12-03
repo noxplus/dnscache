@@ -15,7 +15,9 @@
  * modify by nox @ 2012.11.20
  * */
 
-#include "inc.h"
+#include "util.h"
+#include "rbtree.h"
+#include "testgg.h"
 
 static RBRoot Srv_addr;
 static RBRoot Srv_domain;
@@ -54,10 +56,10 @@ void* srvfunc(void* arg)
     }
 
     //修改流程，udpquery返回字符串。再在这里调用unpackAnswer
-    iQue = udpquery(query->data, query->dlen);//网络查询，结果反馈客户端
-    query->dlen = iQue;
+    iAns = udpquery(query->data, query->dlen);//网络查询，结果反馈客户端
+    query->dlen = iAns;
     unpackAnswer(query->data, &answerrec);//结果上树。
-    Notify(__FILE__, __LINE__, PRT_INFO, "");
+    Notify(PRT_INFO, "[main:%d]", __LINE__);
     sendto(query->sktfd, query->data, query->dlen, 0, (struct sockaddr*)&(query->localadd), sizeof(query->localadd));
 
     return NULL;
@@ -76,7 +78,7 @@ void startwork(void)
 
     if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "socket error[%d:%s]", errno, strerror(errno));
+        Notify(PRT_INFO, "[main:%d] socket error[%d:%s]", __LINE__, errno, strerror(errno));
         return;
     }
     bzero(&lsrv, sizeof(lsrv));
@@ -86,7 +88,7 @@ void startwork(void)
 
     if (bind(skfd, (struct sockaddr*)&lsrv, sizeof(lsrv)) == -1)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "bind error[%d:%s]", errno, strerror(errno));
+        Notify(PRT_INFO, "[main:%d] bind error[%d:%s]", __LINE__, errno, strerror(errno));
         return;
     }
 
@@ -99,7 +101,7 @@ void startwork(void)
         iret = select(skfd+1, &fdread, NULL, NULL, &timeout);
         if (iret < 0)
         {
-            Notify(__FILE__, __LINE__, PRT_INFO, "select error[%d:%s]", errno, strerror(errno));
+            Notify(PRT_INFO, "[main:%d] select error[%d:%s]", __LINE__, errno, strerror(errno));
             return;
         }
         if (iret == 0) continue; //timeout
