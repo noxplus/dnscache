@@ -14,7 +14,7 @@ vpath %.h $(INC)
 vpath %.o $(TMP)
 
 CFLAG:=-Wall -O2 -I$(INC)
-DFLAG=
+DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=-lpthread
 
