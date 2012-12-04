@@ -166,7 +166,7 @@ int main(int argc, char** argv)
     int i = 0, isel, timet;
     unsigned int rand;
     IPv4 tip;
-    int AddrCnt = 0;
+    int AddrCnt;
 
     if (argc != 1)
     {
