@@ -77,7 +77,7 @@ int unpackQuery(char* buf, QueryRec** query)
 
     if (buf == NULL)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "buf is null!");
+        Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
         return 0;
     }
 
@@ -126,10 +126,10 @@ int unpackAnswer(char* buf, AnswerRec** ans)
 
     if (buf == NULL)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "buf is null!");
+        Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
         return 0;
     }
-    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
 
     QueryRec* query = NULL;
     AnswerRec* answer = NULL;
