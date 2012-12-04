@@ -75,17 +75,13 @@ int unpackQuery(char* buf, QueryRec** query)
     QueryRec* qry = NULL;
     int offset, iQue;
 
-<<<<<<< HEAD
     if (buf == NULL)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "buf is null!");
+        Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
         return 0;
     }
 
-    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
-=======
     Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
->>>>>>> 49757e75c2b6790cc1cef3a271154b01fba2d8c0
     iQue = ntohs(pHead->Quests);
     qry = (QueryRec*)calloc(iQue, sizeof(QueryRec));
     if (query != NULL) *query = qry;
@@ -130,10 +126,10 @@ int unpackAnswer(char* buf, AnswerRec** ans)
 
     if (buf == NULL)
     {
-        Notify(__FILE__, __LINE__, PRT_INFO, "buf is null!");
+        Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
         return 0;
     }
-    Notify(__FILE__, __LINE__, PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
 
     QueryRec* query = NULL;
     AnswerRec* answer = NULL;
