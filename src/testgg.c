@@ -8,11 +8,12 @@
 #include "testgg.h"
 
 #define conn_TIMEOUT    1000    //连接超时 单位:ms
-#define conn_TIMES      4       //连接次数
 #define ssl_TIMEOUT     1000    //ssl超时 单位:ms
 
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
+static GIPTime  ipt[11];//存储速度最快的十个IP地址
+static int      ipc = 0;
 
 //设置socket阻塞/非阻塞
 bool SetSocketBlock(int fd, bool block)//true/false
@@ -98,39 +99,98 @@ int tconn(unsigned int tip)
     gsrv.sin_port = htons(443);
     gsrv.sin_addr.s_addr = tip;
 
-    int i, j, issl = 0;
-    for (i = 0; i < conn_TIMES; i++)
+    int j, issl = 0;
+    if ((skfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
-        if ((skfd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+        Notify(PRT_ERROR, "[testgg:%d]socket error", __LINE__);
+        return -1;
+    }
+    SetSocketBlock(skfd, false);
+    for (j = 0; j <= conn_TIMEOUT; j += 50)
+    {
+        iret = connect(skfd, (struct sockaddr*)&gsrv, sizeof(struct sockaddr));
+        if (iret == 0 || errno == EISCONN) break;//连接正常
+        if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
         {
-            Notify(PRT_ERROR, "[testgg:%d]socket error", __LINE__);
+            SetSocketBlock(skfd, true);
+            Notify(PRT_ERROR, "[testgg:%d][%d]connect[%d.%d.%d.%d]error[%d:%s]", __LINE__, j, ip.ipc[0],ip.ipc[1],ip.ipc[2],ip.ipc[3], errno, strerror(errno));
             return -1;
         }
-        SetSocketBlock(skfd, false);
-        for (j = conn_TIMEOUT; j > 0; j -= 50)
-        {
-            iret = connect(skfd, (struct sockaddr*)&gsrv, sizeof(struct sockaddr));
-            if (iret == 0 || errno == EISCONN) break;//连接正常
-            if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
-            {
-                SetSocketBlock(skfd, true);
-                Notify(PRT_ERROR, "[testgg:%d] [%d]connect [%d.%d.%d.%d] error[%d:%s]\n", __LINE__, j, ip.ipc[0], ip.ipc[1], ip.ipc[2], ip.ipc[3], errno, strerror(errno));
-                return -1;
-            }
-            usleep(50 * 1000);
-        }
-        SetSocketBlock(skfd, true);
+        usleep(50 * 1000);
+    }
+    SetSocketBlock(skfd, true);
 
-        if (i == conn_TIMES - 1)//最后一次进行ssl handshake
-        {
-            issl = tssl(skfd);
-            close(skfd);
-            return issl;
-        }
-        close(skfd);
+    issl = tssl(skfd);
+    close(skfd);
+    return issl;
+}
+
+int save2file(char *fname)
+{
+    FILE* fw = fopen(fname, "w");
+    if (fw == NULL) return 0;
+    
+    int i;
+    for (i = 0; i < ipc; i++)
+    {
+        fprintf(fw, "%d.%d.%d.%d    %lu\n", ipt[i].ipaddr.ipc[0], ipt[i].ipaddr.ipc[1], 
+                ipt[i].ipaddr.ipc[2], ipt[i].ipaddr.ipc[3], ipt[i].timeout);
     }
 
-    return conn_TIMEOUT;
+    fclose(fw);
+    return i;
+}
+
+int load2mem(char *fname)
+{
+    FILE* fr = fopen(fname, "r");
+    if (fr == NULL) return 0;
+
+    int i;
+    for (i = 0; i < 10; i++)
+    {
+        int a,b,c,d,e;
+        int iret = fscanf(fr, "%d.%d.%d.%d    %d\n", &a, &b, &c, &d, &e);
+        if (iret != 5) break;
+        printf("READ: %d.%d.%d.%d   %d\n", a,b,c,d,e);
+    }
+    fclose(fr);
+    return i;
+}
+
+//新插入一组数据，和最慢的做比较，并更新
+int new_insert(void)
+{
+    int i;
+
+    if (ipc < 10)
+    {
+        ipt[ipc].ipaddr.ipv4 = ipt[10].ipaddr.ipv4;
+        ipt[ipc].timeout = ipt[10].timeout;
+    }
+
+    for (i = ipc - 1; i >= 0; i--)
+    {
+        if (ipt[i].timeout > ipt[10].timeout || ipt[i].timeout == 0)
+        {
+            if (ipc < 9)
+            {
+                ipt[i+1].ipaddr.ipv4 = ipt[i].ipaddr.ipv4;
+                ipt[i+1].timeout = ipt[i].timeout;
+            }
+        }
+        else break;
+    }
+    
+    if (ipc < 10) ipc++;
+
+    for (i = 0; i < ipc; i++)
+    {
+        printf("%lu ", ipt[i].timeout);
+    }
+    printf("\n");
+
+    return i;
 }
 
 unsigned int initTest(int Cnt, char** list)
@@ -170,6 +230,8 @@ int main(int argc, char** argv)
     IPv4 tip;
     int AddrCnt;
 
+    load2mem("test.txt");
+
     if (argc != 1)
     {
         initTest(argc - 1, argv+1);
@@ -190,7 +252,10 @@ int main(int argc, char** argv)
         timet = tconn(tip.ipv4);
         if (timet > 0 && timet < ssl_TIMEOUT)
         {
+            ipt[10].ipaddr.ipv4 = tip.ipv4;
+            ipt[10].timeout = timet;
             Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
+            new_insert();
         }
         else
         {

@@ -1,4 +1,9 @@
-inc/inc.h
+inc/util.h
+inc/testgg.h
+inc/transdns.h
+inc/rbtree.h
+src/util.c
 src/testgg.c
 src/transdns.c
 src/rbtree.c
+src/main.c

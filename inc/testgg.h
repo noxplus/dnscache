@@ -27,6 +27,12 @@ typedef struct _tp_SSL_CLI_HELLO
     //extension
 }PACKED SSLCliHello;
 
+typedef struct _tp_ip_time
+{
+    IPv4    ipaddr;
+    uint32  timeout;
+}GIPTime;
+
 //test google
 unsigned int initTest(int Cnt, char** list);
 
