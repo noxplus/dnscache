@@ -12,8 +12,9 @@
 
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
-static GIPTime  ipt[11];//存储速度最快的十个IP地址
-static int      ipc = 0;
+static GIPTime  *iptbl;//存储速度最快的IP地址
+static const int    IPCnt = 10;//默认：0～9存地址，10存新入的。共10+1=11
+static char*    bakfile = "test.txt";
 
 //设置socket阻塞/非阻塞
 bool SetSocketBlock(int fd, bool block)//true/false
@@ -131,10 +132,12 @@ int save2file(char *fname)
     if (fw == NULL) return 0;
     
     int i;
-    for (i = 0; i < ipc; i++)
+    for (i = 0; i < IPCnt; i++)
     {
-        fprintf(fw, "%d.%d.%d.%d    %lu\n", ipt[i].ipaddr.ipc[0], ipt[i].ipaddr.ipc[1], 
-                ipt[i].ipaddr.ipc[2], ipt[i].ipaddr.ipc[3], ipt[i].timeout);
+        fprintf(fw, "%d.%d.%d.%d    %lu\n",
+                iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1], 
+                iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
+                iptbl[i].timeout);
     }
 
     fclose(fw);
@@ -147,48 +150,93 @@ int load2mem(char *fname)
     if (fr == NULL) return 0;
 
     int i;
-    for (i = 0; i < 10; i++)
+    for (i = 0; i < IPCnt; i++)
     {
         int a,b,c,d,e;
         int iret = fscanf(fr, "%d.%d.%d.%d    %d\n", &a, &b, &c, &d, &e);
         if (iret != 5) break;
-        printf("READ: %d.%d.%d.%d   %d\n", a,b,c,d,e);
+        iptbl[i].ipaddr.ipc[0] = a;
+        iptbl[i].ipaddr.ipc[1] = b;
+        iptbl[i].ipaddr.ipc[2] = c;
+        iptbl[i].ipaddr.ipc[3] = d;
+        iptbl[i].timeout = e;
     }
     fclose(fr);
-    return i;
+    for (;i < IPCnt; i++)
+    {
+        iptbl[i].ipaddr.ipv4 = 0x0;
+        iptbl[i].timeout = ssl_TIMEOUT;
+    }
+    return IPCnt;
+}
+
+//1、重新获取所有的超时
+//2、排序
+void check_all(void)
+{
+    int iret;
+    int i, j;
+    for (i = 0; i < IPCnt; i++)//reset
+    {
+        iret = tconn(iptbl[i].ipaddr.ipv4);
+        if (iret > 0 && iret < ssl_TIMEOUT)
+            iptbl[i].timeout = iret;
+        else iptbl[i].timeout = ssl_TIMEOUT;
+        Notify(PRT_NOTICE, "check[%d][%d.%d.%d.%d]+[.%d]", i, 
+                iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1],
+                iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
+                iptbl[i].timeout);
+    }
+
+    //冒泡排序
+    for (i = IPCnt - 1; i > 0; i--)
+    {
+        iret = 0;
+        for (j = 0; j < i; j++)
+        {
+            if (iptbl[j].timeout > iptbl[j+1].timeout)
+            {//swap
+                iret++;
+                memcpy(&iptbl[IPCnt], &iptbl[j], sizeof(GIPTime));
+                memcpy(&iptbl[j], &iptbl[j+1], sizeof(GIPTime));
+                memcpy(&iptbl[j+1], &iptbl[IPCnt], sizeof(GIPTime));
+            }
+        }
+        if (iret == 0) break;
+    }
+
+    save2file(bakfile);
 }
 
 //新插入一组数据，和最慢的做比较，并更新
 int new_insert(void)
 {
-    int i;
+    int i, ifnd = IPCnt;
 
-    if (ipc < 10)
+    for (i = 0; i < IPCnt; i++)
     {
-        ipt[ipc].ipaddr.ipv4 = ipt[10].ipaddr.ipv4;
-        ipt[ipc].timeout = ipt[10].timeout;
-    }
-
-    for (i = ipc - 1; i >= 0; i--)
-    {
-        if (ipt[i].timeout > ipt[10].timeout || ipt[i].timeout == 0)
+        if (iptbl[i].ipaddr.ipv4 == iptbl[IPCnt].ipaddr.ipv4)
         {
-            if (ipc < 9)
-            {
-                ipt[i+1].ipaddr.ipv4 = ipt[i].ipaddr.ipv4;
-                ipt[i+1].timeout = ipt[i].timeout;
-            }
+            check_all();
+            return IPCnt;
         }
-        else break;
+        if (iptbl[i].timeout > iptbl[IPCnt].timeout || iptbl[i].timeout == 0)
+        {
+            ifnd = i;
+            break;
+        }
     }
-    
-    if (ipc < 10) ipc++;
+    if (ifnd == IPCnt) return IPCnt;
 
-    for (i = 0; i < ipc; i++)
+    for (i = IPCnt - 2; i >= ifnd; i--)
     {
-        printf("%lu ", ipt[i].timeout);
+        iptbl[i+1].ipaddr.ipv4 = iptbl[i].ipaddr.ipv4;
+        iptbl[i+1].timeout = iptbl[i].timeout;
     }
-    printf("\n");
+    iptbl[ifnd].ipaddr.ipv4 = iptbl[IPCnt].ipaddr.ipv4;
+    iptbl[ifnd].timeout = iptbl[IPCnt].timeout;
+    
+    save2file(bakfile);
 
     return i;
 }
@@ -197,8 +245,9 @@ unsigned int initTest(int Cnt, char** list)
 {
     unsigned int a,b,c,d,l;
     int i;
-    IPh = (IPv4*)malloc(Cnt * sizeof(IPv4));
-    Mask = (IPv4*)malloc(Cnt * sizeof(IPv4));
+    iptbl = (GIPTime*)calloc(IPCnt + 1, sizeof(GIPTime));
+    IPh = (IPv4*)calloc(Cnt, sizeof(IPv4));
+    Mask = (IPv4*)calloc(Cnt, sizeof(IPv4));
     for (i = 0; i < Cnt; i++)
     {
         if (sscanf(list[i], "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
@@ -218,6 +267,9 @@ unsigned int initTest(int Cnt, char** list)
         Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
     }
 
+    load2mem(bakfile);
+    check_all();
+
     return i;
 }
 
@@ -230,8 +282,6 @@ int main(int argc, char** argv)
     IPv4 tip;
     int AddrCnt;
 
-    load2mem("test.txt");
-
     if (argc != 1)
     {
         initTest(argc - 1, argv+1);
@@ -243,8 +293,10 @@ int main(int argc, char** argv)
         AddrCnt = 3;
     }
 
-    for (i = 0; i < 100; i++)
+    for (;;)
     {
+        i++;
+        if (1 % 100 == 0) check_all();
         rand = random32();
         isel = rand % AddrCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
@@ -252,15 +304,16 @@ int main(int argc, char** argv)
         timet = tconn(tip.ipv4);
         if (timet > 0 && timet < ssl_TIMEOUT)
         {
-            ipt[10].ipaddr.ipv4 = tip.ipv4;
-            ipt[10].timeout = timet;
+            iptbl[IPCnt].ipaddr.ipv4 = tip.ipv4;
+            iptbl[IPCnt].timeout = timet;
             Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
             new_insert();
+            sleep(5);
         }
-        else
-        {
-            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
-        }
+//        else
+//        {
+//            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
+//        }
     }
     return 0;
 }
