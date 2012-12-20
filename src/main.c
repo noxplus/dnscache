@@ -17,7 +17,7 @@
 
 #include "util.h"
 #include "rbtree.h"
-#include "testgg.h"
+#include "gghost.h"
 
 static RBRoot Srv_addr;
 static RBRoot Srv_domain;

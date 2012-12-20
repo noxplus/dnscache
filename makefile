@@ -18,13 +18,13 @@ DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=-lpthread
 
-TARGET=util rbtree testgg transdns main
+TARGET=util rbtree gghost transdns main
 
 none:
 	@echo all target: $(TARGET)
 obj:$(addsuffix .o, $(TARGET))
 	@echo make all obj-file
-exe:$(addsuffix .o, $(TARGET))
+bin:$(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	gcc -o $(BIN)/dnscache $^ $(LFLAG)
 

@@ -5,7 +5,7 @@
  * */
 
 #include "util.h"
-#include "testgg.h"
+#include "gghost.h"
 
 typedef struct _cfg_gghost_globa
 {
@@ -14,12 +14,15 @@ typedef struct _cfg_gghost_globa
     int32       HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
     char*       BakFile;
     char*       IPBlocks;
+    uint32      Time_to_Check;
+    uint32      Time_Sleepms;
 }CFG_GGHost;
 
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
 static GIPTime  *iptbl;//存储速度最快的IP地址
 static int      IPBlockCnt = 0;
+static time_t   Check_Time = 0;//
 
 CFG_GGHost      HostCfg;
 
@@ -183,6 +186,9 @@ void check_all(void)
 {
     int iret;
     int i, j;
+
+    time(&Check_Time);
+
     for (i = 0; i < HostCfg.HostIPCnt; i++)//reset
     {
         iret = tconn(iptbl[i].ipaddr.ipv4);
@@ -296,12 +302,14 @@ unsigned int initTest(void)
 #ifdef ONLY_RUN
 int Usage(void)
 {
-    fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks]\n");
+    fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-s sleep_time] [-c check_time]\n");
     fprintf(stderr, "\t -C : timeout(ms) for connect to google IP.\n");
     fprintf(stderr, "\t -S : timeout(ms) for send SSL package.\n");
     fprintf(stderr, "\t -h : save count of host IP.\n");
     fprintf(stderr, "\t -f : save file.\n");
     fprintf(stderr, "\t -b : IP blocks like '74.125.0.0/16,173.194.0.0/16'.\n");
+    fprintf(stderr, "\t -s : sleep time(ms) between IP tries.\n");
+    fprintf(stderr, "\t -c : time(s) between checks.\n");
     exit(1);
 }
 
@@ -318,22 +326,24 @@ int main(int argc, char** argv)
     HostCfg.BakFile = "test.txt";       //-f
     HostCfg.IPBlocks =                  //-b
         "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
+    HostCfg.Time_to_Check = 120;        //-c
+    HostCfg.Time_Sleepms = 1000;        //-s
 
     while ((opt = getopt(argc, argv, "C:S:h:f:b:h?")) != -1)
     {
         switch(opt)
         {
-            case 'C':// connect timeout
+            case 'C'://
                 HostCfg.Connect_Timeout = atoi(optarg);
                 if (HostCfg.Connect_Timeout < 100) HostCfg.Connect_Timeout = 100;
                 if (HostCfg.Connect_Timeout > 10000) HostCfg.Connect_Timeout = 10000;
                 break;
-            case 'S':// connect timeout
+            case 'S':// 
                 HostCfg.SSL_Timeout = atoi(optarg);
                 if (HostCfg.SSL_Timeout < 100) HostCfg.SSL_Timeout = 100;
                 if (HostCfg.SSL_Timeout > 10000) HostCfg.SSL_Timeout = 10000;
                 break;
-            case 'h':// connect timeout
+            case 'h'://
                 HostCfg.HostIPCnt = atoi(optarg);
                 if (HostCfg.HostIPCnt < 3) HostCfg.HostIPCnt = 3;
                 if (HostCfg.HostIPCnt > 100) HostCfg.HostIPCnt = 100;
@@ -344,18 +354,29 @@ int main(int argc, char** argv)
             case 'b':
                 HostCfg.IPBlocks = optarg;
                 break;
+            case 's'://
+                HostCfg.Time_Sleepms = atoi(optarg);
+                if (HostCfg.HostIPCnt < 100) HostCfg.HostIPCnt = 100;
+                break;
+            case 'c'://
+                HostCfg.Time_to_Check = atoi(optarg);
+                break;
             default:
                 Usage();
         }
     }
     if (optind < argc) Usage(); //有未做处理的参数
+    if (HostCfg.Time_to_Check < 2 * HostCfg.HostIPCnt)
+    {
+        HostCfg.Time_to_Check = 2 * HostCfg.HostIPCnt;
+    }
 
     initTest();
 
     for (;;)
     {
         i++;
-        if (i % 100 == 0) check_all();
+        if (time(NULL) - Check_Time > HostCfg.Time_to_Check) check_all();
         rand = random32();
         isel = rand % IPBlockCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
@@ -372,7 +393,7 @@ int main(int argc, char** argv)
 //        {
 //            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
 //        }
-        sleep(3);
+        usleep(HostCfg.Time_Sleepms * 1000);
     }
     return 0;
 }
