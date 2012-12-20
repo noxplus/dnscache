@@ -1,18 +1,36 @@
 #ifndef _UTIL_H_
 #define _UTIL_H_
 
+
+#ifdef __linux__
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdbool.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <stdbool.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
+#include <sys/time.h>
 #include <pthread.h>
+#endif
+#ifdef _WIN32
+#define _CRT_RAND_S
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdarg.h>
+#include <stdbool.h>
 #include <errno.h>
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <winsock2.h>
+#include <Ws2tcpip.h>
+#pragma comment(lib, "Ws2_32.lib")
+#endif
 
 typedef signed long     int32;
 typedef signed short    int16;
@@ -47,7 +65,12 @@ typedef unsigned char   uint8;
 
 #define NAMEMAXLEN  64
 
+#ifdef __GNUC__
 #define PACKED __attribute__((packed))
+#endif
+#ifdef _MSC_VER
+//
+#endif
 
 typedef union _tp_IPv4
 {
