@@ -21,7 +21,7 @@ bool SetSocketBlock(int fd, bool block)//true/false
 {
    if (fd < 0) return false;
 
-#ifdef WIN32
+#ifdef _WIN32
    unsigned long mode = block == true ? 0 : 1;
    return (ioctlsocket(fd, FIONBIO, &mode) == 0) ? true : false;
 #else
@@ -296,7 +296,7 @@ int main(int argc, char** argv)
     for (;;)
     {
         i++;
-        if (1 % 100 == 0) check_all();
+        if (i % 100 == 0) check_all();
         rand = random32();
         isel = rand % AddrCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
@@ -308,12 +308,12 @@ int main(int argc, char** argv)
             iptbl[IPCnt].timeout = timet;
             Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
             new_insert();
-            sleep(5);
         }
 //        else
 //        {
 //            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
 //        }
+        sleep(3);
     }
     return 0;
 }
