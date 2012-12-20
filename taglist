@@ -1,9 +1,9 @@
 inc/util.h
-inc/testgg.h
+inc/gghost.h
 inc/transdns.h
 inc/rbtree.h
 src/util.c
-src/testgg.c
+src/gghost.c
 src/transdns.c
 src/rbtree.c
 src/main.c

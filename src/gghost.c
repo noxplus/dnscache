@@ -144,7 +144,7 @@ int save2file(void)
     int i;
     for (i = 0; i < HostCfg.HostIPCnt; i++)
     {
-        fprintf(fw, "%d.%d.%d.%d    %lu\n",
+        fprintf(fw, "%d.%d.%d.%d\t%lu\n",
                 iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1], 
                 iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
                 iptbl[i].timeout);
@@ -158,18 +158,19 @@ int load2mem(void)
 {
     FILE* fr = fopen(HostCfg.BakFile, "r");
     if (fr == NULL) return 0;
+    char line[1024];
 
-    int i;
+    int i, iret;
     for (i = 0; i < HostCfg.HostIPCnt; i++)
     {
-        int a,b,c,d,e;
-        int iret = fscanf(fr, "%d.%d.%d.%d    %d\n", &a, &b, &c, &d, &e);
-        if (iret != 5) break;
+        int a,b,c,d;
+        if (fgets(line, sizeof(line), fr) == NULL) break;
+        iret = sscanf(line, "%d.%d.%d.%d", &a, &b, &c, &d);
+        if (iret != 4) break;
         iptbl[i].ipaddr.ipc[0] = a;
         iptbl[i].ipaddr.ipc[1] = b;
         iptbl[i].ipaddr.ipc[2] = c;
         iptbl[i].ipaddr.ipc[3] = d;
-        iptbl[i].timeout = e;
     }
     fclose(fr);
     for (;i < HostCfg.HostIPCnt; i++)
@@ -299,6 +300,11 @@ unsigned int initTest(void)
     return i;
 }
 
+int ReadCfg(void)
+{
+    return 0;
+}
+
 #ifdef ONLY_RUN
 int Usage(void)
 {
@@ -313,12 +319,64 @@ int Usage(void)
     exit(1);
 }
 
+#define ArgChar(Section) \
+    if (argv[i][2] != 0)\
+    {\
+        HostCfg.Section = &argv[i][2];\
+    }\
+    else HostCfg.Section = argv[++i];
+
+#define ArgInt(Section, Amin, Amax) \
+    if (argv[i][2] != 0)\
+    {\
+        HostCfg.Section = atoi(&argv[i][2]);\
+    }\
+    else HostCfg.Section = atoi(argv[++i]);\
+    if (HostCfg.Section < Amin) HostCfg.Connect_Timeout = Amin;\
+    if (HostCfg.Section > Amax) HostCfg.Connect_Timeout = Amax;
+
+int ParseArg(int argc, char** argv)
+{
+    int i;
+    for (i = 1; i < argc; i++)
+    {
+        if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
+        switch (argv[i][1])
+        {
+            case 'C'://
+                ArgInt(Connect_Timeout, 100, 10000);
+                break;
+            case 'S':// 
+                ArgInt(SSL_Timeout, 100, 10000);
+                break;
+            case 'h'://
+                ArgInt(HostIPCnt, 3, 100);
+                break;
+            case 'f':
+                ArgChar(BakFile);
+                break;
+            case 'b':
+                ArgChar(IPBlocks);
+                break;
+            case 's'://
+                ArgInt(Time_Sleepms, 100, 600000);
+                break;
+            case 'c'://
+                ArgInt(Time_to_Check, 1, 86400);
+                break;
+            default:
+                Usage();
+        }
+    }
+
+    return 0;
+}
+
 int main(int argc, char** argv)
 {
     int i = 0, isel, timet;
     unsigned int rand;
     IPv4 tip;
-    char opt;
 
     HostCfg.Connect_Timeout = 1000;     //-C
     HostCfg.SSL_Timeout = 1000;         //-S
@@ -326,46 +384,11 @@ int main(int argc, char** argv)
     HostCfg.BakFile = "test.txt";       //-f
     HostCfg.IPBlocks =                  //-b
         "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
-    HostCfg.Time_to_Check = 120;        //-c
+    HostCfg.Time_to_Check = 600;        //-c
     HostCfg.Time_Sleepms = 1000;        //-s
 
-    while ((opt = getopt(argc, argv, "C:S:h:f:b:h?")) != -1)
-    {
-        switch(opt)
-        {
-            case 'C'://
-                HostCfg.Connect_Timeout = atoi(optarg);
-                if (HostCfg.Connect_Timeout < 100) HostCfg.Connect_Timeout = 100;
-                if (HostCfg.Connect_Timeout > 10000) HostCfg.Connect_Timeout = 10000;
-                break;
-            case 'S':// 
-                HostCfg.SSL_Timeout = atoi(optarg);
-                if (HostCfg.SSL_Timeout < 100) HostCfg.SSL_Timeout = 100;
-                if (HostCfg.SSL_Timeout > 10000) HostCfg.SSL_Timeout = 10000;
-                break;
-            case 'h'://
-                HostCfg.HostIPCnt = atoi(optarg);
-                if (HostCfg.HostIPCnt < 3) HostCfg.HostIPCnt = 3;
-                if (HostCfg.HostIPCnt > 100) HostCfg.HostIPCnt = 100;
-                break;
-            case 'f':
-                HostCfg.BakFile = optarg;
-                break;
-            case 'b':
-                HostCfg.IPBlocks = optarg;
-                break;
-            case 's'://
-                HostCfg.Time_Sleepms = atoi(optarg);
-                if (HostCfg.HostIPCnt < 100) HostCfg.HostIPCnt = 100;
-                break;
-            case 'c'://
-                HostCfg.Time_to_Check = atoi(optarg);
-                break;
-            default:
-                Usage();
-        }
-    }
-    if (optind < argc) Usage(); //有未做处理的参数
+    ParseArg(argc, argv);
+
     if (HostCfg.Time_to_Check < 2 * HostCfg.HostIPCnt)
     {
         HostCfg.Time_to_Check = 2 * HostCfg.HostIPCnt;
