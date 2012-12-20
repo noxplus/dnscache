@@ -34,7 +34,7 @@ typedef struct _tp_ip_time
 }GIPTime;
 
 //test google
-unsigned int initTest(int Cnt, char** list);
+unsigned int initTest(void);
 
 int tconn(unsigned int);
 

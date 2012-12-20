@@ -1,20 +1,27 @@
 /* 功能描述
  * 一、在指定IP段随机生成IPv4地址.
- * 二、多次connect该IP地址443端口，计算平均消耗时间。
+ * 二、connect该IP地址443端口，计算平均消耗时间。
  * 三、发送ssl handshake，测试该IP地址是否支持https访问。
  * */
 
 #include "util.h"
 #include "testgg.h"
 
-#define conn_TIMEOUT    1000    //连接超时 单位:ms
-#define ssl_TIMEOUT     1000    //ssl超时 单位:ms
+typedef struct _cfg_gghost_globa
+{
+    int32       Connect_Timeout;//默认1000ms
+    int32       SSL_Timeout;//默认1000ms
+    int32       HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
+    char*       BakFile;
+    char*       IPBlocks;
+}CFG_GGHost;
 
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
 static GIPTime  *iptbl;//存储速度最快的IP地址
-static const int    IPCnt = 10;//默认：0～9存地址，10存新入的。共10+1=11
-static char*    bakfile = "test.txt";
+static int      IPBlockCnt = 0;
+
+CFG_GGHost      HostCfg;
 
 //设置socket阻塞/非阻塞
 bool SetSocketBlock(int fd, bool block)//true/false
@@ -40,14 +47,14 @@ int tssl(int sk)
     struct timeval timeout;
     SSLCliHello cli;
 
-    timeout.tv_sec = ssl_TIMEOUT/1000;
-    timeout.tv_usec = ssl_TIMEOUT%1000 * 1000;
+    timeout.tv_sec = HostCfg.SSL_Timeout / 1000;
+    timeout.tv_usec = HostCfg.SSL_Timeout % 1000 * 1000;
     FD_ZERO(&fdset);
     FD_SET(sk, &fdset);
     select(sk+1, NULL, &fdset, NULL, &timeout);	
     if (FD_ISSET(sk, &fdset) == 0)
     {
-        return ssl_TIMEOUT;
+        return HostCfg.SSL_Timeout;
     }
 
     cli.ssl.ContentType = 22;
@@ -68,22 +75,22 @@ int tssl(int sk)
     SSLHead sslh;
     HSHead  HSh;
 
-    timeout.tv_sec = ssl_TIMEOUT/1000;
-    timeout.tv_usec = ssl_TIMEOUT%1000 * 1000;
+    timeout.tv_sec = HostCfg.SSL_Timeout/1000;
+    timeout.tv_usec = HostCfg.SSL_Timeout%1000 * 1000;
     FD_ZERO(&fdset);
     FD_SET(sk, &fdset);
     select(sk+1, &fdset, NULL, NULL, &timeout);	
     if (FD_ISSET(sk, &fdset))
     {
         iret = recv(sk, &sslh, sizeof(sslh), 0);
-        if (iret != sizeof(sslh)) return ssl_TIMEOUT * 4;//connect reset!
+        if (iret != sizeof(sslh)) return HostCfg.SSL_Timeout * 4;//connect reset!
         iret = recv(sk, &HSh, sizeof(HSh), 0);
-        if (iret != sizeof(HSh)) return ssl_TIMEOUT * 4;
-        if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x2) return ssl_TIMEOUT * 4;
-        return ssl_TIMEOUT - (timeout.tv_sec*1000 + (timeout.tv_usec+500)/1000);
+        if (iret != sizeof(HSh)) return HostCfg.SSL_Timeout * 4;
+        if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x2) return HostCfg.SSL_Timeout * 4;
+        return HostCfg.SSL_Timeout - (timeout.tv_sec*1000 + (timeout.tv_usec+500)/1000);
     }
 
-    return ssl_TIMEOUT;
+    return HostCfg.SSL_Timeout;
 }
 
 int tconn(unsigned int tip)
@@ -107,7 +114,7 @@ int tconn(unsigned int tip)
         return -1;
     }
     SetSocketBlock(skfd, false);
-    for (j = 0; j <= conn_TIMEOUT; j += 50)
+    for (j = 0; j <= HostCfg.Connect_Timeout; j += 50)
     {
         iret = connect(skfd, (struct sockaddr*)&gsrv, sizeof(struct sockaddr));
         if (iret == 0 || errno == EISCONN) break;//连接正常
@@ -126,13 +133,13 @@ int tconn(unsigned int tip)
     return issl;
 }
 
-int save2file(char *fname)
+int save2file(void)
 {
-    FILE* fw = fopen(fname, "w");
+    FILE* fw = fopen(HostCfg.BakFile, "w");
     if (fw == NULL) return 0;
     
     int i;
-    for (i = 0; i < IPCnt; i++)
+    for (i = 0; i < HostCfg.HostIPCnt; i++)
     {
         fprintf(fw, "%d.%d.%d.%d    %lu\n",
                 iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1], 
@@ -144,13 +151,13 @@ int save2file(char *fname)
     return i;
 }
 
-int load2mem(char *fname)
+int load2mem(void)
 {
-    FILE* fr = fopen(fname, "r");
+    FILE* fr = fopen(HostCfg.BakFile, "r");
     if (fr == NULL) return 0;
 
     int i;
-    for (i = 0; i < IPCnt; i++)
+    for (i = 0; i < HostCfg.HostIPCnt; i++)
     {
         int a,b,c,d,e;
         int iret = fscanf(fr, "%d.%d.%d.%d    %d\n", &a, &b, &c, &d, &e);
@@ -162,12 +169,12 @@ int load2mem(char *fname)
         iptbl[i].timeout = e;
     }
     fclose(fr);
-    for (;i < IPCnt; i++)
+    for (;i < HostCfg.HostIPCnt; i++)
     {
         iptbl[i].ipaddr.ipv4 = 0x0;
-        iptbl[i].timeout = ssl_TIMEOUT;
+        iptbl[i].timeout = HostCfg.SSL_Timeout;
     }
-    return IPCnt;
+    return HostCfg.HostIPCnt;
 }
 
 //1、重新获取所有的超时
@@ -176,12 +183,12 @@ void check_all(void)
 {
     int iret;
     int i, j;
-    for (i = 0; i < IPCnt; i++)//reset
+    for (i = 0; i < HostCfg.HostIPCnt; i++)//reset
     {
         iret = tconn(iptbl[i].ipaddr.ipv4);
-        if (iret > 0 && iret < ssl_TIMEOUT)
+        if (iret > 0 && iret < HostCfg.SSL_Timeout)
             iptbl[i].timeout = iret;
-        else iptbl[i].timeout = ssl_TIMEOUT;
+        else iptbl[i].timeout = HostCfg.SSL_Timeout;
         Notify(PRT_NOTICE, "check[%d][%d.%d.%d.%d]+[.%d]", i, 
                 iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1],
                 iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
@@ -189,7 +196,7 @@ void check_all(void)
     }
 
     //冒泡排序
-    for (i = IPCnt - 1; i > 0; i--)
+    for (i = HostCfg.HostIPCnt - 1; i > 0; i--)
     {
         iret = 0;
         for (j = 0; j < i; j++)
@@ -197,63 +204,68 @@ void check_all(void)
             if (iptbl[j].timeout > iptbl[j+1].timeout)
             {//swap
                 iret++;
-                memcpy(&iptbl[IPCnt], &iptbl[j], sizeof(GIPTime));
+                memcpy(&iptbl[HostCfg.HostIPCnt], &iptbl[j], sizeof(GIPTime));
                 memcpy(&iptbl[j], &iptbl[j+1], sizeof(GIPTime));
-                memcpy(&iptbl[j+1], &iptbl[IPCnt], sizeof(GIPTime));
+                memcpy(&iptbl[j+1], &iptbl[HostCfg.HostIPCnt], sizeof(GIPTime));
             }
         }
         if (iret == 0) break;
     }
 
-    save2file(bakfile);
+    save2file();
 }
 
 //新插入一组数据，和最慢的做比较，并更新
 int new_insert(void)
 {
-    int i, ifnd = IPCnt;
+    int i, ifnd = HostCfg.HostIPCnt;
 
-    for (i = 0; i < IPCnt; i++)
+    for (i = 0; i < HostCfg.HostIPCnt; i++)
     {
-        if (iptbl[i].ipaddr.ipv4 == iptbl[IPCnt].ipaddr.ipv4)
+        if (iptbl[i].ipaddr.ipv4 == iptbl[HostCfg.HostIPCnt].ipaddr.ipv4)
         {
             check_all();
-            return IPCnt;
+            return HostCfg.HostIPCnt;
         }
-        if (iptbl[i].timeout > iptbl[IPCnt].timeout || iptbl[i].timeout == 0)
+        if (iptbl[i].timeout > iptbl[HostCfg.HostIPCnt].timeout || iptbl[i].timeout == 0)
         {
             ifnd = i;
             break;
         }
     }
-    if (ifnd == IPCnt) return IPCnt;
+    if (ifnd == HostCfg.HostIPCnt) return ifnd;
 
-    for (i = IPCnt - 2; i >= ifnd; i--)
+    for (i = HostCfg.HostIPCnt - 2; i >= ifnd; i--)
     {
         iptbl[i+1].ipaddr.ipv4 = iptbl[i].ipaddr.ipv4;
         iptbl[i+1].timeout = iptbl[i].timeout;
     }
-    iptbl[ifnd].ipaddr.ipv4 = iptbl[IPCnt].ipaddr.ipv4;
-    iptbl[ifnd].timeout = iptbl[IPCnt].timeout;
+    iptbl[ifnd].ipaddr.ipv4 = iptbl[HostCfg.HostIPCnt].ipaddr.ipv4;
+    iptbl[ifnd].timeout = iptbl[HostCfg.HostIPCnt].timeout;
     
-    save2file(bakfile);
+    save2file();
 
     return i;
 }
 
-unsigned int initTest(int Cnt, char** list)
+unsigned int initTest(void)
 {
     unsigned int a,b,c,d,l;
+    char * blocks;
     int i;
-    iptbl = (GIPTime*)calloc(IPCnt + 1, sizeof(GIPTime));
-    IPh = (IPv4*)calloc(Cnt, sizeof(IPv4));
-    Mask = (IPv4*)calloc(Cnt, sizeof(IPv4));
-    for (i = 0; i < Cnt; i++)
+
+    IPBlockCnt = 0;
+    IPh = Mask = NULL;
+    iptbl = (GIPTime*)calloc(HostCfg.HostIPCnt + 1, sizeof(GIPTime));
+    blocks = HostCfg.IPBlocks;
+    for (i = 0;; i++)
     {
-        if (sscanf(list[i], "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
+        if (sscanf(blocks, "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
         {
             break;
         }
+        IPh = (IPv4*)realloc(IPh, (i+1)*sizeof(IPv4));
+        Mask = (IPv4*)realloc(Mask, (i+1)*sizeof(IPv4));
         IPh[i].ipc[0] = a;
         IPh[i].ipc[1] = b;
         IPh[i].ipc[2] = c;
@@ -264,48 +276,95 @@ unsigned int initTest(int Cnt, char** list)
         Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
         if (l >= 32) Mask[i].ipv4 = 0U;
 
+        IPBlockCnt++;
+
         Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
+        blocks = strchr(blocks, ',');
+        if (blocks == NULL) break;
+        while(*blocks < '1' || *blocks > '9')
+        {
+            if (*++blocks == 0) break;
+        }
     }
 
-    load2mem(bakfile);
+    load2mem();
     check_all();
 
     return i;
 }
 
 #ifdef ONLY_RUN
+int Usage(void)
+{
+    fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks]\n");
+    fprintf(stderr, "\t -C : timeout(ms) for connect to google IP.\n");
+    fprintf(stderr, "\t -S : timeout(ms) for send SSL package.\n");
+    fprintf(stderr, "\t -h : save count of host IP.\n");
+    fprintf(stderr, "\t -f : save file.\n");
+    fprintf(stderr, "\t -b : IP blocks like '74.125.0.0/16,173.194.0.0/16'.\n");
+    exit(1);
+}
+
 int main(int argc, char** argv)
 {
-    char *address[3] = {"74.125.0.0/16", "173.194.0.0/16", "72.14.192.0/18"};
     int i = 0, isel, timet;
     unsigned int rand;
     IPv4 tip;
-    int AddrCnt;
+    char opt;
 
-    if (argc != 1)
+    HostCfg.Connect_Timeout = 1000;     //-C
+    HostCfg.SSL_Timeout = 1000;         //-S
+    HostCfg.HostIPCnt = 20;             //-h
+    HostCfg.BakFile = "test.txt";       //-f
+    HostCfg.IPBlocks =                  //-b
+        "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
+
+    while ((opt = getopt(argc, argv, "C:S:h:f:b:h?")) != -1)
     {
-        initTest(argc - 1, argv+1);
-        AddrCnt = argc - 1;
+        switch(opt)
+        {
+            case 'C':// connect timeout
+                HostCfg.Connect_Timeout = atoi(optarg);
+                if (HostCfg.Connect_Timeout < 100) HostCfg.Connect_Timeout = 100;
+                if (HostCfg.Connect_Timeout > 10000) HostCfg.Connect_Timeout = 10000;
+                break;
+            case 'S':// connect timeout
+                HostCfg.SSL_Timeout = atoi(optarg);
+                if (HostCfg.SSL_Timeout < 100) HostCfg.SSL_Timeout = 100;
+                if (HostCfg.SSL_Timeout > 10000) HostCfg.SSL_Timeout = 10000;
+                break;
+            case 'h':// connect timeout
+                HostCfg.HostIPCnt = atoi(optarg);
+                if (HostCfg.HostIPCnt < 3) HostCfg.HostIPCnt = 3;
+                if (HostCfg.HostIPCnt > 100) HostCfg.HostIPCnt = 100;
+                break;
+            case 'f':
+                HostCfg.BakFile = optarg;
+                break;
+            case 'b':
+                HostCfg.IPBlocks = optarg;
+                break;
+            default:
+                Usage();
+        }
     }
-    else
-    {
-        initTest(3, address);
-        AddrCnt = 3;
-    }
+    if (optind < argc) Usage(); //有未做处理的参数
+
+    initTest();
 
     for (;;)
     {
         i++;
         if (i % 100 == 0) check_all();
         rand = random32();
-        isel = rand % AddrCnt;
+        isel = rand % IPBlockCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
 
         timet = tconn(tip.ipv4);
-        if (timet > 0 && timet < ssl_TIMEOUT)
+        if (timet > 0 && timet < HostCfg.SSL_Timeout)
         {
-            iptbl[IPCnt].ipaddr.ipv4 = tip.ipv4;
-            iptbl[IPCnt].timeout = timet;
+            iptbl[HostCfg.HostIPCnt].ipaddr.ipv4 = tip.ipv4;
+            iptbl[HostCfg.HostIPCnt].timeout = timet;
             Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
             new_insert();
         }
