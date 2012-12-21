@@ -28,18 +28,20 @@
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winsock2.h>
-#include <Ws2tcpip.h>
-#pragma comment(lib, "Ws2_32.lib")
+#include <ws2tcpip.h>
 #endif
 
+typedef signed int      int;
 typedef signed long     int32;
 typedef signed short    int16;
 typedef signed char     int8;
+typedef unsigned int    uint;
 typedef unsigned long   uint32;
 typedef unsigned short  uint16;
 typedef unsigned char   uint8;
 
-//printf颜色代码
+//颜色代码
+#ifdef __linux__
 #define NONE        "\033[m"
 #define RED         "\033[0;31m"
 #define LRED        "\033[1;31m"
@@ -55,6 +57,24 @@ typedef unsigned char   uint8;
 #define LCYAN       "\033[1;36m"
 #define LGRAY       "\033[0;37m"
 #define WHITE       "\033[1;37m"
+#endif
+#ifdef _WIN32
+#define LIGHT       FOREGROUND_INTENSITY
+#define RED         FOREGROUND_RED
+#define GREEN       FOREGROUND_GREEN
+#define BLUE        FOREGROUND_BLUE
+#define LRED        (RED | LIGHT)
+#define LGREEN      (GREEN | LIGHT)
+#define BROWN       (RED | GREEN)
+#define YELLOW      (BROWN | LIGHT)
+#define LBLUE       (BLUE | LIGHT)
+#define PURPLE      (RED | BLUE)
+#define LPURPLE     (PURPLE | LIGHT)
+#define CYAN        (GREEN | BLUE)
+#define LCYAN       (CYAN | LIGHT)
+#define LGRAY       (RED | GREEN | BLUE)
+#define WHITE       (LGRAY | LIGHT)
+#endif
 
 #define PRT_ERROR   0
 #define PRT_NOTICE  1

@@ -13,6 +13,10 @@ vpath %.cpp $(SRC)
 vpath %.h $(INC)
 vpath %.o $(TMP)
 
+ARCH:=
+CC:=$(ARCH)gcc
+CPP:=$(ARCH)g++
+
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
@@ -26,15 +30,15 @@ obj:$(addsuffix .o, $(TARGET))
 	@echo make all obj-file
 bin:$(addsuffix .o, $(TARGET))
 	@echo make bin-file
-	gcc -o $(BIN)/dnscache $^ $(LFLAG)
+	$(CC) -o $(BIN)/dnscache $^ $(LFLAG)
 
 %:%.c util.c
-	gcc -o $(BIN)/$@ $^ -DONLY_RUN $(CFLAG) $(DFLAG)
+	$(CC) -o $(BIN)/$@ $^ -DONLY_RUN $(CFLAG) $(DFLAG)
 
 %.o:%.c
-	gcc -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
+	$(CC) -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 %.o:%.cpp
-	g++ -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
+	$(CPP) -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
 rebuild:clean obj bin
 

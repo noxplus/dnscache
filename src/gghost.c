@@ -7,6 +7,11 @@
 #include "util.h"
 #include "gghost.h"
 
+#ifdef _MSC_VER
+#pragma comment(lib, "Ws2_32.lib")
+#endif
+
+
 typedef struct _cfg_gghost_globa
 {
     int32       Connect_Timeout;//默认1000ms
@@ -73,7 +78,7 @@ int tssl(int sk)
     cli.CompMethLen = 0x1;
     cli.CompMeth = 0x0;
 
-    iret = send(sk, &cli, sizeof(cli), 0);//测试成功拿到ssl证书！
+    iret = send(sk, (char*)&cli, sizeof(cli), 0);//测试成功拿到ssl证书！
 
     SSLHead sslh;
     HSHead  HSh;
@@ -85,9 +90,9 @@ int tssl(int sk)
     select(sk+1, &fdset, NULL, NULL, &timeout);	
     if (FD_ISSET(sk, &fdset))
     {
-        iret = recv(sk, &sslh, sizeof(sslh), 0);
+        iret = recv(sk, (char*)&sslh, sizeof(sslh), 0);
         if (iret != sizeof(sslh)) return HostCfg.SSL_Timeout * 4;//connect reset!
-        iret = recv(sk, &HSh, sizeof(HSh), 0);
+        iret = recv(sk, (char*)&HSh, sizeof(HSh), 0);
         if (iret != sizeof(HSh)) return HostCfg.SSL_Timeout * 4;
         if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x2) return HostCfg.SSL_Timeout * 4;
         return HostCfg.SSL_Timeout - (timeout.tv_sec*1000 + (timeout.tv_usec+500)/1000);
