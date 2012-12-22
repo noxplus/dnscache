@@ -13,7 +13,7 @@ vpath %.cpp $(SRC)
 vpath %.h $(INC)
 vpath %.o $(TMP)
 
-ARCH:=
+ARCH:=i486-mingw32-
 
 CC:=${ARCH}gcc
 CPP:=${ARCH}g++
