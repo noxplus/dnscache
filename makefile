@@ -11,6 +11,7 @@ BIN:=$(BASE)/bin
 vpath %.c $(SRC)
 vpath %.cpp $(SRC)
 vpath %.h $(INC)
+vpath %.hpp $(INC)
 vpath %.o $(TMP)
 
 ARCH:=
