@@ -31,7 +31,6 @@
 #include <ws2tcpip.h>
 #endif
 
-typedef signed int      int;
 typedef signed long     int32;
 typedef signed short    int16;
 typedef signed char     int8;
@@ -102,6 +101,6 @@ typedef union _tp_IPv4
 
 uint32 random32(void);
 
-int Notify(int, char*, ...);
+int Notify(int, const char*, ...);
 
 #endif

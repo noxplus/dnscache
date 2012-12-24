@@ -79,7 +79,7 @@ int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
     tt.tv_usec = timeout%1000 * 1000;
     FD_ZERO(&fdset);
     FD_SET(m_sock, &fdset);
-    select(m_sock+1, &fdset, NULL, NULL, &timeout);	
+    select(m_sock+1, &fdset, NULL, NULL, &tt);	
     if (FD_ISSET(m_sock, &fdset) == 0)
     {
         return -1;
@@ -104,32 +104,32 @@ SSLTest::SSLTest()
     m_hello.CompMethLen = 0x1;
     m_hello.CompMeth = 0x0;
 
-    SetIPPort(0L, 443);
+    SetIPPort(0UL, 443);
 }
 
 int SSLTest::RunTest(void)
 {
     int iret;
     SSLHead     sslh;
-    DNSHSHead   HSh;
+    SSLHSHead   HSh;
 
-    iret = TCPConnect();
-    if (iret < 0 || iret >= m_Conn_Timeout)
+    iret = TCPConnect(m_connect_timeout);
+    if (iret < 0 || iret >= m_connect_timeout)
     {
         return -2;
     }
 
-    iret = TCPSend(&m_hello, sizeof(m_hello), m_SSL_Timeout);
-    if (iret < 0 || iret >= m_SSL_Timeout)
+    iret = TCPSend((char*)&m_hello, sizeof(m_hello), m_SSL_send_timeout);
+    if (iret < 0 || iret >= m_SSL_send_timeout)
     {
         return -2;
     }
 
-    iret = TCPRecv(&sslh, sizeof(sslh));
-    iret = TCPRecv(&HSh, sizeof(HSh));
+    iret = TCPRecv((char*)&sslh, sizeof(sslh), m_SSL_recv_timeout);
+    iret = TCPRecv((char*)&HSh, sizeof(HSh), m_SSL_recv_timeout);
     if (sslh.ContentLen != 0x16 || HSh.HandshakeType != 0x02)
     {
-        return m_SSL_Timeout;
+        return m_SSL_recv_timeout;
     }
 
     return iret;

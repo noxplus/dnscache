@@ -179,9 +179,9 @@ public:
 
     int     SetSockBlock(bool);
     void    SetIPPort(uint32, uint16);
-    void    SetIPPort(char*, uint16);
+    void    SetIPPort(const char*, uint16);
     void    SetIP(uint32);
-    void    SetIP(char*);
+    void    SetIP(const char*);
 };
 
 class SSLTest : public NetTCP
@@ -196,8 +196,7 @@ public:
     SSLTest();
     ~SSLTest();
 
-    int RunTest(uint32);
-    int RunTest(char*);
+    int RunTest(void);
 };
 
 //设定ip、port
@@ -208,7 +207,7 @@ inline void NetTCP::SetIPPort(uint32 ip, uint16 port)
     remote.sin_port = htons(port);
     remote.sin_addr.s_addr = ip;
 };
-inline void NetTCP::SetIPPort(char* ip, uint16 port)
+inline void NetTCP::SetIPPort(const char* ip, uint16 port)
 {
     memset(&remote, 0, sizeof(remote));
     remote.sin_family = AF_INET;
@@ -219,7 +218,7 @@ inline void NetTCP::SetIP(uint32 ip)
 {
     remote.sin_addr.s_addr = ip;
 };
-inline void NetTCP::SetIP(char* ip)
+inline void NetTCP::SetIP(const char* ip)
 {
     remote.sin_addr.s_addr = inet_addr(ip);
 };
@@ -242,5 +241,5 @@ inline int NetTCP::SetSockBlock(bool block)
 
 
 uint32 random32(void);
-int Notify(int, char*, ...);
+int Notify(int, const char*, ...);
 

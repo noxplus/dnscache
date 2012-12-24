@@ -73,7 +73,7 @@ int Notify(int level, char *fmt, ...)
     cnt = vsnprintf(strbuf, sizeof(strbuf), fmt, argptr);
     va_end(argptr);
 
-#ifdef __LINUX__
+#ifdef __linux__
     fprintf(fp, "[%02d:%02d:%02d.%03d]%s[%s] %s\033[m\n", hour, min, sec, msec, lvlclr[level], lvlstr[level], strbuf);
 #endif
 #ifdef _WIN32
