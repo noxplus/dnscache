@@ -91,12 +91,6 @@ typedef unsigned char   uint8;
 //
 #endif
 
-typedef union _tp_IPv4
-{
-    uint32  ipv4;
-    uint8   ipc[4];
-}IPv4;
-
 //util
 
 uint32 random32(void);

@@ -33,7 +33,7 @@ bin:$(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	${CC} -o $(BIN)/dnscache $^ $(LFLAG)
 
-%:%.c util.c
+%:%.cpp util.cpp
 	${CC} -o $(BIN)/$@ $^ -DONLY_RUN $(CFLAG) $(DFLAG)
 
 %.o:%.c
