@@ -11,7 +11,6 @@ BIN:=$(BASE)/bin
 vpath %.c $(SRC)
 vpath %.cpp $(SRC)
 vpath %.h $(INC)
-vpath %.hpp $(INC)
 vpath %.o $(TMP)
 
 ARCH:=
@@ -21,27 +20,27 @@ CPP:=${ARCH}g++
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
-LFLAG:=-lpthread
+LFLAG:=
 
 TARGET=util rbtree gghost transdns main
 
 none:
 	@echo all target: $(TARGET)
-obj:$(addsuffix .o, $(TARGET))
+obj : $(addsuffix .o, $(TARGET))
 	@echo make all obj-file
-bin:$(addsuffix .o, $(TARGET))
+bin : $(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	${CC} -o $(BIN)/dnscache $^ $(LFLAG)
 
-%:%.cpp util.cpp
-	${CC} -o $(BIN)/$@ $^ -DONLY_RUN $(CFLAG) $(DFLAG)
-
-%.o:%.c
+%.o : %.c
 	${CC} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
-%.o:%.cpp
+%.o : %.cpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
-rebuild:clean obj bin
+gghost : gghost.cpp netsock.cpp util.cpp
+	${CPP} -o $(TMP)/$@ $^ $(CFLAG) $(DFLAG) $(LFLAG) -DONLY_RUN
+
+rebuild : clean obj bin
 
 clean:
 	@-rm -f $(BIN)/* $(TMP)/*.o

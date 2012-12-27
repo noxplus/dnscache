@@ -1,3 +1,4 @@
+#include "util.hpp"
 #include "netsock.hpp"
 
 NetTCP::NetTCP()
@@ -106,6 +107,9 @@ SSLTest::SSLTest()
 
     SetIPPort(0UL, 443);
 }
+SSLTest::~SSLTest()
+{
+}
 
 int SSLTest::RunTest(void)
 {
@@ -134,3 +138,4 @@ int SSLTest::RunTest(void)
 
     return iret;
 }
+

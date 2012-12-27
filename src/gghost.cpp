@@ -23,7 +23,6 @@ CFG_GGHost      HostCfg;
 
 SSLTest ssltest;
 
-
 int save2file(void)
 {
     FILE* fw = fopen(HostCfg.BakFile, "w");
@@ -80,7 +79,7 @@ void check_all(void)
 
     for (i = 0; i < HostCfg.HostIPCnt; i++)//reset
     {
-        iret = tconn(iptbl[i].ipaddr.ipv4);
+        iret = ssltest.RunTest(iptbl[i].ipaddr.ipv4);
         if (iret > 0 && iret < HostCfg.SSL_Timeout)
             iptbl[i].timeout = iret;
         else iptbl[i].timeout = HostCfg.SSL_Timeout;
@@ -222,8 +221,8 @@ int Usage(void)
         HostCfg.Section = atoi(&argv[i][2]);\
     }\
     else HostCfg.Section = atoi(argv[++i]);\
-    if (HostCfg.Section < Amin) HostCfg.Connect_Timeout = Amin;\
-    if (HostCfg.Section > Amax) HostCfg.Connect_Timeout = Amax;
+    if (HostCfg.Section < Amin) HostCfg.Section = Amin;\
+    if (HostCfg.Section > Amax) HostCfg.Section = Amax;
 
 int ParseArg(int argc, char** argv)
 {
@@ -233,32 +232,17 @@ int ParseArg(int argc, char** argv)
         if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
         switch (argv[i][1])
         {
-            case 'C'://
-                ArgInt(Connect_Timeout, 100, 10000);
-                break;
-            case 'S':// 
-                ArgInt(SSL_Timeout, 100, 10000);
-                break;
-            case 'h'://
-                ArgInt(HostIPCnt, 3, 100);
-                break;
-            case 'f':
-                ArgChar(BakFile);
-                break;
-            case 'b':
-                ArgChar(IPBlocks);
-                break;
-            case 's'://
-                ArgInt(Time_Sleepms, 100, 600000);
-                break;
-            case 'c'://
-                ArgInt(Time_to_Check, 1, 86400);
-                break;
+            case 'C': ArgInt(Connect_Timeout, 100, 10000); break;
+            case 'S': ArgInt(SSL_Timeout, 100, 10000); break;
+            case 'h': ArgInt(HostIPCnt, 3, 100); break;
+            case 'f': ArgChar(BakFile); break;
+            case 'b': ArgChar(IPBlocks); break;
+            case 's': ArgInt(Time_Sleepms, 100, 600000); break;
+            case 'c': ArgInt(Time_to_Check, 1, 86400); break;
             default:
                 Usage();
         }
     }
-
     return 0;
 }
 
@@ -294,7 +278,7 @@ int main(int argc, char** argv)
         isel = rand % IPBlockCnt;
         tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
 
-        timet = tconn(tip.ipv4);
+        timet = ssltest.RunTest(tip.ipv4);
         if (timet > 0 && timet < HostCfg.SSL_Timeout)
         {
             iptbl[HostCfg.HostIPCnt].ipaddr.ipv4 = tip.ipv4;
