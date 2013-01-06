@@ -103,27 +103,34 @@ typedef struct _tp_SSL_CLI_HELLO
 }PACKED SSLCliHello;
 
 
+class NetIP
+{
+    private:
+        IPv4*   IPnet;
+        IPv4*   IPmask;
+};
+
 class NetTCP
 {
-private:
-    int                 m_sock;
-    struct sockaddr_in  remote;
-    struct sockaddr_in  local;
+    private:
+        int                 m_sock;
+        struct sockaddr_in  remote;
+        struct sockaddr_in  local;
 
-public:
-    NetTCP();
-    ~NetTCP();
+    public:
+        NetTCP();
+        ~NetTCP();
 
-    int     TCPConnect(int);
-    void    TCPClose(void);
-    int     TCPSend(char*, int, int);
-    int     TCPRecv(char*, int, int);
+        int     TCPConnect(int);
+        void    TCPClose(void);
+        int     TCPSend(char*, int, int);
+        int     TCPRecv(char*, int, int);
 
-    int     SetSockBlock(bool);
-    void    SetIPPort(uint32, uint16);
-    void    SetIPPort(const char*, uint16);
-    void    SetIP(uint32);
-    void    SetIP(const char*);
+        int     SetSockBlock(bool);
+        void    SetIPPort(uint32, uint16);
+        void    SetIPPort(const char*, uint16);
+        void    SetIP(uint32);
+        void    SetIP(const char*);
 };
 
 class SSLTest : public NetTCP
@@ -150,22 +157,22 @@ inline void NetTCP::SetIPPort(uint32 ip, uint16 port)
     remote.sin_family = AF_INET;
     remote.sin_port = htons(port);
     remote.sin_addr.s_addr = ip;
-};
+}
 inline void NetTCP::SetIPPort(const char* ip, uint16 port)
 {
     memset(&remote, 0, sizeof(remote));
     remote.sin_family = AF_INET;
     remote.sin_port = htons(port);
     remote.sin_addr.s_addr = inet_addr(ip);
-};
+}
 inline void NetTCP::SetIP(uint32 ip)
 {
     remote.sin_addr.s_addr = ip;
-};
+}
 inline void NetTCP::SetIP(const char* ip)
 {
     remote.sin_addr.s_addr = inet_addr(ip);
-};
+}
 //设置socket阻塞/非阻塞
 inline int NetTCP::SetSockBlock(bool block)
 {
@@ -181,6 +188,17 @@ inline int NetTCP::SetSockBlock(bool block)
     flags = block == true ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
     return (fcntl(m_sock, F_SETFL, flags) == 0) ? true : false;
 #endif
-};
+}
+
+inline int SSLTest::RunTest(uint32 ip)
+{
+    SetIP(ip);
+    return RunTest();
+}
+inline int SSLTest::RunTest(const char *ip)
+{
+    SetIP(ip);
+    return RunTest();
+}
 
 #endif
