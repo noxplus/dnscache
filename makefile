@@ -41,6 +41,9 @@ bin:$(addsuffix .o, $(TARGET))
 %.o:%.cpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
+gghost:gghost.cpp netsock.cpp util.cpp
+	${CC} -o $(BIN)/$@ $^ -DONLY_RUN $(CFLAG) $(DFLAG)
+
 rebuild:clean obj bin
 
 clean:
