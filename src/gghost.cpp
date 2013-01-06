@@ -2,16 +2,6 @@
 #include "gghost.hpp"
 
 
-typedef struct _cfg_gghost_globa
-{
-    int32          Connect_Timeout;//默认1000ms
-    int32          SSL_Timeout;//默认1000ms
-    int32          HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
-    const char*     BakFile;
-    const char*     IPBlocks;
-    int32          Time_to_Check;
-    int32          Time_Sleepms;
-}CFG_GGHost;
 
 static IPv4*    IPh = NULL;
 static IPv4*    Mask = NULL;
@@ -315,4 +305,110 @@ bool ggRec::operator==(const ggRec& rhs)
     if (timeout == rhs.timeout && ipaddr.ipv4 == rhs.ipaddr.ipv4)
         return true;
     return false;
+}
+
+ggHostCFG::ggHostCFG(void)
+{
+    Connect_Timeout = 1000;     //-C
+    SSL_Timeout = 1000;         //-S
+    HostIPCnt = 20;             //-h
+    BakFile = "test.txt";       //-f
+    IPBlocks =                  //-b
+        "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
+    Time_to_Check = 600;        //-c
+    Time_Sleepms = 1000;        //-s
+}
+void ggHostCFG::ReadCfg(const char* cfgfile)
+{
+    return;
+}
+
+#define PraseArgChar(var) \
+    if (argv[i][2] != 0)\
+    {\
+        var = &argv[i][2];\
+    }\
+    else var = argv[++i];
+
+#define PraseArgInt(var, Amin, Amax) \
+    if (argv[i][2] != 0)\
+    {\
+        var = atoi(&argv[i][2]);\
+    }\
+    else var = atoi(argv[++i]);\
+    if (var < Amin) var = Amin;\
+    if (var > Amax) var = Amax;
+
+void ggHostCFG::ParseArg(int argc, char** argv)
+{
+    int i;
+    for (i = 1; i < argc; i++)
+    {
+        if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
+        switch (argv[i][1])
+        {
+            case 'C': PraseArgInt(Connect_Timeout, 100, 10000); break;
+            case 'S': PraseArgInt(SSL_Timeout, 100, 10000); break;
+            case 'h': PraseArgInt(HostIPCnt, 3, 100); break;
+            case 'f': PraseArgChar(BakFile); break;
+            case 'b': PraseArgChar(IPBlocks); break;
+            case 's': PraseArgInt(Time_Sleepms, 100, 600000); break;
+            case 'c': PraseArgInt(Time_to_Check, 1, 86400); break;
+            default:
+                Usage();
+        }
+    }
+    return 0;
+}
+
+ggTest::ggTest(void)
+{
+    m_IPBlockCnt = 0;
+    m_ipHead = NULL;
+    m_ipMask = NULL;
+    m_checkTime = 0;
+}
+
+void ggTest::initTest(int argc, char** argv)
+{
+    unsigned int a,b,c,d,l;
+    const char * blocks;
+    int i;
+
+    m_cfg.ParseArg(argc, argv);
+
+    blocks = m_cfg.IPBlocks;
+    for (i = 0;; i++)
+    {
+        if (sscanf(blocks, "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
+        {
+            break;
+        }
+        IPh = (IPv4*)realloc(IPh, (i+1)*sizeof(IPv4));
+        Mask = (IPv4*)realloc(Mask, (i+1)*sizeof(IPv4));
+        IPh[i].ipc[0] = a;
+        IPh[i].ipc[1] = b;
+        IPh[i].ipc[2] = c;
+        IPh[i].ipc[3] = d;
+        Mask[i].ipc[0] = 0xFF >> l;
+        Mask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
+        Mask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
+        Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
+        if (l >= 32) Mask[i].ipv4 = 0U;
+
+        IPBlockCnt++;
+
+        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
+        blocks = strchr(blocks, ',');
+        if (blocks == NULL) break;
+        while(*blocks < '1' || *blocks > '9')
+        {
+            if (*++blocks == 0) break;
+        }
+    }
+
+    ssltest.SetIPPort(0UL, 443);
+
+    load2mem();
+    check_all();
 }

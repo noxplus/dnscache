@@ -106,40 +106,47 @@ typedef struct _tp_SSL_CLI_HELLO
 class NetIP
 {
     private:
-        IPv4*   IPnet;
-        IPv4*   IPmask;
+        IPv4*   IPnet;  //IP子网
+        IPv4*   IPmask; //子网掩码
+    public:
+        NetIP(void);//初始化为空
+        NetIP(const char*);//使用字符串初始化
+        ~NetIP(void);//回收
+
+        int AddSubNet(const char*);//增加网段
+        uint32 GetRandIP(void);//获得一个子网内随机IP
 };
 
 class NetTCP
 {
     private:
-        int                 m_sock;
-        struct sockaddr_in  remote;
-        struct sockaddr_in  local;
+        int                 m_sock; //使用的socket
+        struct sockaddr_in  remote; //远端地址信息
+        struct sockaddr_in  local;  //本地地址信息
 
     public:
         NetTCP();
         ~NetTCP();
 
-        int     TCPConnect(int);
-        void    TCPClose(void);
-        int     TCPSend(char*, int, int);
-        int     TCPRecv(char*, int, int);
+        int     TCPConnect(int); //连接到远端。参数：超时
+        void    TCPClose(void);  //关闭连接
+        int     TCPSend(char*, int, int);//发送数据 数据，长度，超时
+        int     TCPRecv(char*, int, int);//接收数据 数据，长度，超时
 
-        int     SetSockBlock(bool);
-        void    SetIPPort(uint32, uint16);
-        void    SetIPPort(const char*, uint16);
-        void    SetIP(uint32);
-        void    SetIP(const char*);
+        int     SetSockBlock(bool); //设定socket的阻塞/非阻塞
+        void    SetIPPort(uint32, uint16); //设定服务器的IP、端口
+        void    SetIPPort(const char*, uint16);//设定服务器的IP、端口
+        void    SetIP(uint32);//设定服务器的IP
+        void    SetIP(const char*);//设定服务器IP
 };
 
 class SSLTest : public NetTCP
 {
 private:
-    SSLCliHello     m_hello;
-    int             m_connect_timeout;
-    int             m_SSL_send_timeout;
-    int             m_SSL_recv_timeout;
+    SSLCliHello     m_hello; //ssh报文
+    int             m_connect_timeout; //连接超时
+    int             m_SSL_send_timeout; //发送超时
+    int             m_SSL_recv_timeout; //接收超时 
 
 public:
     SSLTest();
