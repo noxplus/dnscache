@@ -22,11 +22,14 @@ class ggRec
     bool operator>(const ggRec&);
     bool operator<(const ggRec&);
     bool operator==(const ggRec&);
+    void save(FILE*);
+    void SetIPAddr(uint32);
+    void SetTimeout(uint32);
 };
 
 class ggHostCFG
 {
-    private:
+    public:
     int32          Connect_Timeout;//默认1000ms
     int32          SSL_Timeout;//默认1000ms
     int32          HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
@@ -35,7 +38,6 @@ class ggHostCFG
     int32          Time_to_Check;
     int32          Time_Sleepms;
 
-    public:
     ggHostCFG(void);
     ~ggHostCFG(void){}
     void ReadCfg(const char*);
@@ -57,19 +59,12 @@ class ggTest : public SSLTest
 
     public:
     ggTest(void);
-    ~ggTest(void){}
-    void initTest(int, char**);
-    void load2mem(void);
-    void save2file(void);
-    void checkall(void);
-    void looopfunc(void);
+    ~ggTest(void);
+    void InitTest(const char*);
+    void Load2Mem(void);
+    void Save2File(void);
+    void CheckAll(void);
+    void LoopFunc(void);
 };
-
-//test google
-unsigned int initTest(void);
-
-int tconn(unsigned int);
-
-int tssl(int);
 
 #endif

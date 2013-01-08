@@ -2,188 +2,6 @@
 #include "gghost.hpp"
 
 
-
-static IPv4*    IPh = NULL;
-static IPv4*    Mask = NULL;
-static GIPTime  *iptbl;//存储速度最快的IP地址
-static int      IPBlockCnt = 0;
-static time_t   Check_Time = 0;//
-
-CFG_GGHost      HostCfg;
-
-SSLTest ssltest;
-
-int save2file(void)
-{
-    FILE* fw = fopen(HostCfg.BakFile, "w");
-    if (fw == NULL) return 0;
-    
-    int i;
-    for (i = 0; i < HostCfg.HostIPCnt; i++)
-    {
-        fprintf(fw, "%d.%d.%d.%d\t%lu\n",
-                iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1], 
-                iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
-                iptbl[i].timeout);
-    }
-
-    fclose(fw);
-    return i;
-}
-
-int load2mem(void)
-{
-    FILE* fr = fopen(HostCfg.BakFile, "r");
-    if (fr == NULL) return 0;
-    char line[1024];
-
-    int i, iret;
-    for (i = 0; i < HostCfg.HostIPCnt; i++)
-    {
-        int a,b,c,d;
-        if (fgets(line, sizeof(line), fr) == NULL) break;
-        iret = sscanf(line, "%d.%d.%d.%d", &a, &b, &c, &d);
-        if (iret != 4) break;
-        iptbl[i].ipaddr.ipc[0] = a;
-        iptbl[i].ipaddr.ipc[1] = b;
-        iptbl[i].ipaddr.ipc[2] = c;
-        iptbl[i].ipaddr.ipc[3] = d;
-    }
-    fclose(fr);
-    for (;i < HostCfg.HostIPCnt; i++)
-    {
-        iptbl[i].ipaddr.ipv4 = 0x0;
-        iptbl[i].timeout = HostCfg.SSL_Timeout;
-    }
-    return HostCfg.HostIPCnt;
-}
-
-//1、重新获取所有的超时
-//2、排序
-void check_all(void)
-{
-    int iret;
-    int i, j;
-
-    time(&Check_Time);
-
-    for (i = 0; i < HostCfg.HostIPCnt; i++)//reset
-    {
-        iret = ssltest.RunTest(iptbl[i].ipaddr.ipv4);
-        if (iret > 0 && iret < HostCfg.SSL_Timeout)
-            iptbl[i].timeout = iret;
-        else iptbl[i].timeout = HostCfg.SSL_Timeout;
-        Notify(PRT_NOTICE, "check[%d][%d.%d.%d.%d]+[.%d]", i, 
-                iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1],
-                iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
-                iptbl[i].timeout);
-    }
-
-    //冒泡排序
-    for (i = HostCfg.HostIPCnt - 1; i > 0; i--)
-    {
-        iret = 0;
-        for (j = 0; j < i; j++)
-        {
-            if (iptbl[j].timeout > iptbl[j+1].timeout)
-            {//swap
-                iret++;
-                memcpy(&iptbl[HostCfg.HostIPCnt], &iptbl[j], sizeof(GIPTime));
-                memcpy(&iptbl[j], &iptbl[j+1], sizeof(GIPTime));
-                memcpy(&iptbl[j+1], &iptbl[HostCfg.HostIPCnt], sizeof(GIPTime));
-            }
-        }
-        if (iret == 0) break;
-    }
-
-    save2file();
-}
-
-//新插入一组数据，和最慢的做比较，并更新
-int new_insert(void)
-{
-    int i, ifnd = HostCfg.HostIPCnt;
-
-    for (i = 0; i < HostCfg.HostIPCnt; i++)
-    {
-        if (iptbl[i].ipaddr.ipv4 == iptbl[HostCfg.HostIPCnt].ipaddr.ipv4)
-        {
-            check_all();
-            return HostCfg.HostIPCnt;
-        }
-        if (iptbl[i].timeout > iptbl[HostCfg.HostIPCnt].timeout || iptbl[i].timeout == 0)
-        {
-            ifnd = i;
-            break;
-        }
-    }
-    if (ifnd == HostCfg.HostIPCnt) return ifnd;
-
-    for (i = HostCfg.HostIPCnt - 2; i >= ifnd; i--)
-    {
-        iptbl[i+1].ipaddr.ipv4 = iptbl[i].ipaddr.ipv4;
-        iptbl[i+1].timeout = iptbl[i].timeout;
-    }
-    iptbl[ifnd].ipaddr.ipv4 = iptbl[HostCfg.HostIPCnt].ipaddr.ipv4;
-    iptbl[ifnd].timeout = iptbl[HostCfg.HostIPCnt].timeout;
-    
-    save2file();
-
-    return i;
-}
-
-unsigned int initTest(void)
-{
-    unsigned int a,b,c,d,l;
-    const char * blocks;
-    int i;
-
-    IPBlockCnt = 0;
-    IPh = Mask = NULL;
-    iptbl = (GIPTime*)calloc(HostCfg.HostIPCnt + 1, sizeof(GIPTime));
-    blocks = HostCfg.IPBlocks;
-    for (i = 0;; i++)
-    {
-        if (sscanf(blocks, "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
-        {
-            break;
-        }
-        IPh = (IPv4*)realloc(IPh, (i+1)*sizeof(IPv4));
-        Mask = (IPv4*)realloc(Mask, (i+1)*sizeof(IPv4));
-        IPh[i].ipc[0] = a;
-        IPh[i].ipc[1] = b;
-        IPh[i].ipc[2] = c;
-        IPh[i].ipc[3] = d;
-        Mask[i].ipc[0] = 0xFF >> l;
-        Mask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
-        Mask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
-        Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
-        if (l >= 32) Mask[i].ipv4 = 0U;
-
-        IPBlockCnt++;
-
-        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
-        blocks = strchr(blocks, ',');
-        if (blocks == NULL) break;
-        while(*blocks < '1' || *blocks > '9')
-        {
-            if (*++blocks == 0) break;
-        }
-    }
-
-    ssltest.SetIPPort(0UL, 443);
-
-    load2mem();
-    check_all();
-
-    return i;
-}
-
-int ReadCfg(void)
-{
-    return 0;
-}
-
 #ifdef ONLY_RUN
 int Usage(void)
 {
@@ -251,7 +69,7 @@ int main(int argc, char** argv)
     HostCfg.Time_to_Check = 600;        //-c
     HostCfg.Time_Sleepms = 1000;        //-s
 
-    ParseArg(argc, argv);
+    m_cfg.ParseArg(argc, argv);
 
     if (HostCfg.Time_to_Check < 2 * HostCfg.HostIPCnt)
     {
@@ -263,12 +81,6 @@ int main(int argc, char** argv)
     for (;;)
     {
         i++;
-        if (time(NULL) - Check_Time > HostCfg.Time_to_Check) check_all();
-        rand = random32();
-        isel = rand % IPBlockCnt;
-        tip.ipv4 = (rand & Mask[isel].ipv4) | IPh[isel].ipv4;
-
-        timet = ssltest.RunTest(tip.ipv4);
         if (timet > 0 && timet < HostCfg.SSL_Timeout)
         {
             iptbl[HostCfg.HostIPCnt].ipaddr.ipv4 = tip.ipv4;
@@ -305,6 +117,19 @@ bool ggRec::operator==(const ggRec& rhs)
     if (timeout == rhs.timeout && ipaddr.ipv4 == rhs.ipaddr.ipv4)
         return true;
     return false;
+}
+void ggRec::save(FILE* fw)
+{
+    fprintf(fw, "%d.%d.%d.%d\t%lu\n", ipaddr.ipc[0],
+            ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
+}
+void ggRec::SetIPAddr(uint32 ip)
+{
+    ipaddr.ipv4 = ip;
+}
+void ggRec::SetTimeout(uint32 time)
+{
+    timeout = time;
 }
 
 ggHostCFG::ggHostCFG(void)
@@ -368,37 +193,49 @@ ggTest::ggTest(void)
     m_ipMask = NULL;
     m_checkTime = 0;
 }
+ggTest::~ggTest(void)
+{
+    if (m_ipHead != NULL)
+    {
+        free(m_ipHead);
+        m_ipHead = NULL;
+    }
+    if (m_ipMask != NULL)
+    {
+        free(m_ipMask);
+        m_ipMask = NULL;
+    }
+}
 
-void ggTest::initTest(int argc, char** argv)
+void ggTest::InitTest(const char* blocks)
 {
     unsigned int a,b,c,d,l;
-    const char * blocks;
     int i;
 
-    m_cfg.ParseArg(argc, argv);
-
-    blocks = m_cfg.IPBlocks;
     for (i = 0;; i++)
     {
         if (sscanf(blocks, "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
         {
             break;
         }
-        IPh = (IPv4*)realloc(IPh, (i+1)*sizeof(IPv4));
-        Mask = (IPv4*)realloc(Mask, (i+1)*sizeof(IPv4));
-        IPh[i].ipc[0] = a;
-        IPh[i].ipc[1] = b;
-        IPh[i].ipc[2] = c;
-        IPh[i].ipc[3] = d;
-        Mask[i].ipc[0] = 0xFF >> l;
-        Mask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
-        Mask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
-        Mask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
-        if (l >= 32) Mask[i].ipv4 = 0U;
+        m_ipHead = (IPv4*)realloc(m_ipHead, (i+1)*sizeof(IPv4));
+        m_ipMask = (IPv4*)realloc(m_ipMask, (i+1)*sizeof(IPv4));
 
-        IPBlockCnt++;
+        m_ipHead[i].ipc[0] = a;
+        m_ipHead[i].ipc[1] = b;
+        m_ipHead[i].ipc[2] = c;
+        m_ipHead[i].ipc[3] = d;
 
-        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__, IPh[i].ipv4, Mask[i].ipv4);
+        m_ipMask[i].ipc[0] = 0xFF >> l;
+        m_ipMask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
+        m_ipMask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
+        m_ipMask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
+        if (l >= 32) m_ipMask[i].ipv4 = 0U;
+
+        m_IPBlockCnt++;
+
+        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__,
+                m_ipHead[i].ipv4, m_ipMask[i].ipv4);
         blocks = strchr(blocks, ',');
         if (blocks == NULL) break;
         while(*blocks < '1' || *blocks > '9')
@@ -407,8 +244,82 @@ void ggTest::initTest(int argc, char** argv)
         }
     }
 
-    ssltest.SetIPPort(0UL, 443);
+    SetIPPort(0UL, 443);
 
     load2mem();
-    check_all();
+    checkall();
+}
+void ggTest::Load2Mem(void)
+{
+    FILE* fr = fopen(m_cfg.BakFile, "r");
+    if (fr == NULL) return;
+    char line[1024];
+
+    int i, iret;
+    IPv4 ipread;
+    for (i = 0; i < m_cfg.HostIPCnt; i++)
+    {
+        int a,b,c,d;
+        if (fgets(line, sizeof(line), fr) == NULL) break;
+        iret = sscanf(line, "%d.%d.%d.%d", &a, &b, &c, &d);
+        if (iret != 4) break;
+        ipread.ipc[0] = a;
+        ipread.ipc[1] = b;
+        ipread.ipc[2] = c;
+        ipread.ipc[3] = d;
+        ggRec recread(ipread.ipv4, m_cfg.SSL_Timeout);
+        m_list.push_back(ggRec);
+    }
+    fclose(fr);
+    return;
+}
+void ggTest::Save2File(void)
+{
+    FILE* fw = fopen(m_cfg.BakFile, "w");
+    if (fw == NULL) return;
+    
+    ggListIter it;
+    for (it = m_list.begin(); it != m_list.end(); it++)
+    {
+        fprintf(fw, "%d.%d.%d.%d\t%lu\n",
+                iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1], 
+                iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
+                iptbl[i].timeout);
+    }
+
+    fclose(fw);
+    return i;
+}
+void ggTest::CheckAll(void)
+{
+    int iret;
+    int i, j;
+
+    time(&m_checkTime);
+
+    ggListIter it;
+    for (it = m_list.begin(); it != m_list.end(); it++)
+    {
+        iret = RunTest(it->ipaddr.ipv4);
+        if (iret > 0 && iret < m_cfg.SSL_Timeout)
+            it->SetTimeout(iret);
+        else it->SetTimeout(m_cfg.SSL_Timeout);
+    }
+
+    m_list.sort();
+
+    Save2File();
+}
+void ggTest::LoopFunc(void)
+{
+    uint32 test;
+    int isel;
+
+    if (time(NULL) - m_checkTime > m_cfg.Time_to_Check) checkall();
+
+    rand = random32();
+    isel = rand % m_IPBlockCnt;
+    test = (rand & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
+
+    RunTest();
 }
