@@ -16,83 +16,17 @@ int Usage(void)
     exit(1);
 }
 
-#define ArgChar(Section) \
-    if (argv[i][2] != 0)\
-    {\
-        HostCfg.Section = &argv[i][2];\
-    }\
-    else HostCfg.Section = argv[++i];
-
-#define ArgInt(Section, Amin, Amax) \
-    if (argv[i][2] != 0)\
-    {\
-        HostCfg.Section = atoi(&argv[i][2]);\
-    }\
-    else HostCfg.Section = atoi(argv[++i]);\
-    if (HostCfg.Section < Amin) HostCfg.Section = Amin;\
-    if (HostCfg.Section > Amax) HostCfg.Section = Amax;
-
-int ParseArg(int argc, char** argv)
-{
-    int i;
-    for (i = 1; i < argc; i++)
-    {
-        if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
-        switch (argv[i][1])
-        {
-            case 'C': ArgInt(Connect_Timeout, 100, 10000); break;
-            case 'S': ArgInt(SSL_Timeout, 100, 10000); break;
-            case 'h': ArgInt(HostIPCnt, 3, 100); break;
-            case 'f': ArgChar(BakFile); break;
-            case 'b': ArgChar(IPBlocks); break;
-            case 's': ArgInt(Time_Sleepms, 100, 600000); break;
-            case 'c': ArgInt(Time_to_Check, 1, 86400); break;
-            default:
-                Usage();
-        }
-    }
-    return 0;
-}
-
 int main(int argc, char** argv)
 {
-    int i = 0, isel, timet;
-    unsigned int rand;
-    IPv4 tip;
+    int i = 0;
+    ggTest test;
 
-    HostCfg.Connect_Timeout = 1000;     //-C
-    HostCfg.SSL_Timeout = 1000;         //-S
-    HostCfg.HostIPCnt = 20;             //-h
-    HostCfg.BakFile = "test.txt";       //-f
-    HostCfg.IPBlocks =                  //-b
-        "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
-    HostCfg.Time_to_Check = 600;        //-c
-    HostCfg.Time_Sleepms = 1000;        //-s
-
-    m_cfg.ParseArg(argc, argv);
-
-    if (HostCfg.Time_to_Check < 2 * HostCfg.HostIPCnt)
-    {
-        HostCfg.Time_to_Check = 2 * HostCfg.HostIPCnt;
-    }
-
-    initTest();
+    test.InitTest(argc, argv);
 
     for (;;)
     {
-        i++;
-        if (timet > 0 && timet < HostCfg.SSL_Timeout)
-        {
-            iptbl[HostCfg.HostIPCnt].ipaddr.ipv4 = tip.ipv4;
-            iptbl[HostCfg.HostIPCnt].timeout = timet;
-            Notify(PRT_NOTICE, "[%d][%d.%d.%d.%d]+[.%d]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3], timet);
-            new_insert();
-        }
-//        else
-//        {
-//            Notify(PRT_WARNING, "[%d][%d.%d.%d.%d]+[fail]", i, tip.ipc[0], tip.ipc[1], tip.ipc[2], tip.ipc[3]);
-//        }
-        usleep(HostCfg.Time_Sleepms * 1000);
+        Notify(PRT_INFO, "loop:%d", ++i);
+        test.LoopFunc();
     }
     return 0;
 }
@@ -118,7 +52,7 @@ bool ggRec::operator==(const ggRec& rhs)
         return true;
     return false;
 }
-void ggRec::save(FILE* fw)
+void ggRec::print(FILE* fw)
 {
     fprintf(fw, "%d.%d.%d.%d\t%lu\n", ipaddr.ipc[0],
             ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
@@ -130,6 +64,14 @@ void ggRec::SetIPAddr(uint32 ip)
 void ggRec::SetTimeout(uint32 time)
 {
     timeout = time;
+}
+uint32 ggRec::GetIPAddr(void)
+{
+    return ipaddr.ipv4;
+}
+uint32 ggRec::GetTimeout(void)
+{
+    return timeout;
 }
 
 ggHostCFG::ggHostCFG(void)
@@ -183,7 +125,6 @@ void ggHostCFG::ParseArg(int argc, char** argv)
                 Usage();
         }
     }
-    return 0;
 }
 
 ggTest::ggTest(void)
@@ -207,10 +148,15 @@ ggTest::~ggTest(void)
     }
 }
 
-void ggTest::InitTest(const char* blocks)
+void ggTest::InitTest(int argc, char** argv)
 {
     unsigned int a,b,c,d,l;
     int i;
+    const char* blocks = m_cfg.IPBlocks;
+
+    m_cfg.ParseArg(argc, argv);
+
+    SetTimeout(m_cfg.Connect_Timeout, m_cfg.SSL_Timeout, m_cfg.SSL_Timeout);
 
     for (i = 0;; i++)
     {
@@ -244,10 +190,9 @@ void ggTest::InitTest(const char* blocks)
         }
     }
 
+    Load2Mem();
+    CheckAll();
     SetIPPort(0UL, 443);
-
-    load2mem();
-    checkall();
 }
 void ggTest::Load2Mem(void)
 {
@@ -268,7 +213,7 @@ void ggTest::Load2Mem(void)
         ipread.ipc[2] = c;
         ipread.ipc[3] = d;
         ggRec recread(ipread.ipv4, m_cfg.SSL_Timeout);
-        m_list.push_back(ggRec);
+        m_list.push_back(recread);
     }
     fclose(fr);
     return;
@@ -281,26 +226,22 @@ void ggTest::Save2File(void)
     ggListIter it;
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
-        fprintf(fw, "%d.%d.%d.%d\t%lu\n",
-                iptbl[i].ipaddr.ipc[0], iptbl[i].ipaddr.ipc[1], 
-                iptbl[i].ipaddr.ipc[2], iptbl[i].ipaddr.ipc[3],
-                iptbl[i].timeout);
+        it->print(fw);
     }
 
     fclose(fw);
-    return i;
+    return;
 }
 void ggTest::CheckAll(void)
 {
     int iret;
-    int i, j;
 
     time(&m_checkTime);
 
     ggListIter it;
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
-        iret = RunTest(it->ipaddr.ipv4);
+        iret = RunTest(it->GetIPAddr());
         if (iret > 0 && iret < m_cfg.SSL_Timeout)
             it->SetTimeout(iret);
         else it->SetTimeout(m_cfg.SSL_Timeout);
@@ -312,14 +253,36 @@ void ggTest::CheckAll(void)
 }
 void ggTest::LoopFunc(void)
 {
-    uint32 test;
+    uint32 testip, tout;
     int isel;
 
-    if (time(NULL) - m_checkTime > m_cfg.Time_to_Check) checkall();
+    if (time(NULL) - m_checkTime > m_cfg.Time_to_Check) CheckAll();
 
-    rand = random32();
-    isel = rand % m_IPBlockCnt;
-    test = (rand & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
+    testip = random32();
+    isel = testip % m_IPBlockCnt;
+    testip = (testip & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
 
-    RunTest();
+    tout = RunTest(testip);
+
+    Notify(PRT_NOTICE, "new ip [%ul]", tout);
+
+    ggRec test(testip, tout);
+
+    test.print();
+
+    ggListIter it;
+    for(it = m_list.begin(); it != m_list.end(); ++it)
+    {
+        if (test < *it)
+        {
+            m_list.insert(it, test);
+            Notify(PRT_NOTICE, "insert");
+            break;
+        }
+    }
+
+    if (m_list.size() > m_cfg.HostIPCnt)
+    {
+        m_list.pop_back();
+    }
 }

@@ -120,13 +120,13 @@ int SSLTest::RunTest(void)
     iret = TCPConnect(m_connect_timeout);
     if (iret < 0 || iret >= m_connect_timeout)
     {
-        return -2;
+        return m_SSL_recv_timeout + 1;
     }
 
     iret = TCPSend((char*)&m_hello, sizeof(m_hello), m_SSL_send_timeout);
     if (iret < 0 || iret >= m_SSL_send_timeout)
     {
-        return -2;
+        return m_SSL_recv_timeout + 2;
     }
 
     iret = TCPRecv((char*)&sslh, sizeof(sslh), m_SSL_recv_timeout);
@@ -139,3 +139,9 @@ int SSLTest::RunTest(void)
     return iret;
 }
 
+void SSLTest::SetTimeout(int conn, int send, int recv)
+{
+    m_connect_timeout = conn;
+    m_SSL_send_timeout = send;
+    m_SSL_recv_timeout = recv;
+}

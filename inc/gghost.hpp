@@ -13,7 +13,7 @@ class ggRec
     std::string  cert;
 
     public:
-    ggRec(uint32 ip = 0L, uint32 time = (uint32)-1)
+    ggRec(uint32 ip, uint32 time = (uint32)-1)
     {
         ipaddr.ipv4 = ip;
         timeout = time;
@@ -22,9 +22,11 @@ class ggRec
     bool operator>(const ggRec&);
     bool operator<(const ggRec&);
     bool operator==(const ggRec&);
-    void save(FILE*);
+    void print(FILE* fw = stdout);
     void SetIPAddr(uint32);
     void SetTimeout(uint32);
+    uint32 GetIPAddr(void);
+    uint32 GetTimeout(void);
 };
 
 class ggHostCFG
@@ -32,7 +34,7 @@ class ggHostCFG
     public:
     int32          Connect_Timeout;//默认1000ms
     int32          SSL_Timeout;//默认1000ms
-    int32          HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
+    uint32         HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
     const char*    BakFile;
     const char*    IPBlocks;
     int32          Time_to_Check;
@@ -60,7 +62,7 @@ class ggTest : public SSLTest
     public:
     ggTest(void);
     ~ggTest(void);
-    void InitTest(const char*);
+    void InitTest(int, char**);
     void Load2Mem(void);
     void Save2File(void);
     void CheckAll(void);

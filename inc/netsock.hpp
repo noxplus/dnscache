@@ -152,6 +152,7 @@ public:
     SSLTest();
     ~SSLTest();
 
+    void SetTimeout(int, int, int);
     int RunTest(void);
     int RunTest(const char*);
     int RunTest(uint32);

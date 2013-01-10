@@ -38,7 +38,7 @@ bin : $(addsuffix .o, $(TARGET))
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
 gghost : gghost.cpp netsock.cpp util.cpp
-	${CPP} -o $(TMP)/$@ $^ $(CFLAG) $(DFLAG) $(LFLAG) -DONLY_RUN
+	${CPP} -o $(BIN)/$@ $^ $(CFLAG) $(DFLAG) $(LFLAG) -DONLY_RUN
 
 rebuild : clean obj bin
 
