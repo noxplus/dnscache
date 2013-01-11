@@ -2,9 +2,9 @@
 #include "transdns.h"
 #include "rbtree.h"
 
-#define  CRED   0x1 //×îµÍ1bit
+#define  CRED   0x1 //æœ€ä½Ž1bit
 #define  CBLACK 0x0
-#define  LEFT   0x2 //´ÎµÍ1bit
+#define  LEFT   0x2 //æ¬¡ä½Ž1bit
 #define  RIGHT  0x0
 
 #define SetBlack(node) (node->Color &= ~CRED)
@@ -170,7 +170,7 @@ int CheckNode(RBRoot* TreeRoot, RBNode* nNode)
     return 0;//
 }
 
-//²åÈë£ºÓÐÏàÍ¬µÄÔò¸²¸Ç£¬·ñÔò²åÈëÐÂ½Úµã
+//æ’å…¥ï¼šæœ‰ç›¸åŒçš„åˆ™è¦†ç›–ï¼Œå¦åˆ™æ’å…¥æ–°èŠ‚ç‚¹
 int RBTreeInsert(RBRoot* TreeRoot, DNSRecode* nVal)
 {
     RBNode* pNode = TreeRoot->Root;
@@ -194,7 +194,7 @@ int RBTreeInsert(RBRoot* TreeRoot, DNSRecode* nVal)
     for(;;)
     {
         iret = Comp(pNode->Value, nVal);
-        if (iret == 0)//ÏàÍ¬£¬¸²¸ÇÄÚÈÝ
+        if (iret == 0)//ç›¸åŒï¼Œè¦†ç›–å†…å®¹
         {
             memcpy(pNode->Value, nVal, sizeof(DNSRecode));
             return 0;

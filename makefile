@@ -13,7 +13,7 @@ vpath %.cpp $(SRC)
 vpath %.h $(INC)
 vpath %.o $(TMP)
 
-ARCH:=
+ARCH:=LANGUAGE=C 
 
 CC:=${ARCH}gcc
 CPP:=${ARCH}g++

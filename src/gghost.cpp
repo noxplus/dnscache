@@ -18,15 +18,14 @@ int Usage(void)
 
 int main(int argc, char** argv)
 {
-    int i = 0;
     ggTest test;
 
     test.InitTest(argc, argv);
 
     for (;;)
     {
-        Notify(PRT_INFO, "loop:%d", ++i);
         test.LoopFunc();
+        usleep(test.GetSleepTime());
     }
     return 0;
 }
@@ -72,6 +71,11 @@ uint32 ggRec::GetIPAddr(void)
 uint32 ggRec::GetTimeout(void)
 {
     return timeout;
+}
+void ggRec::tostr(char* str, int len)
+{
+    snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
+            ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
 }
 
 ggHostCFG::ggHostCFG(void)
@@ -200,7 +204,8 @@ void ggTest::Load2Mem(void)
     if (fr == NULL) return;
     char line[1024];
 
-    int i, iret;
+    uint32 i;
+    int iret;
     IPv4 ipread;
     for (i = 0; i < m_cfg.HostIPCnt; i++)
     {
@@ -242,9 +247,7 @@ void ggTest::CheckAll(void)
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
         iret = RunTest(it->GetIPAddr());
-        if (iret > 0 && iret < m_cfg.SSL_Timeout)
-            it->SetTimeout(iret);
-        else it->SetTimeout(m_cfg.SSL_Timeout);
+        it->SetTimeout(iret);
     }
 
     m_list.sort();
@@ -263,12 +266,11 @@ void ggTest::LoopFunc(void)
     testip = (testip & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
 
     tout = RunTest(testip);
-
-    Notify(PRT_NOTICE, "new ip [%ul]", tout);
-
     ggRec test(testip, tout);
 
-    test.print();
+    char tstr[256];
+    test.tostr(tstr, sizeof(tstr));
+    Notify(PRT_INFO, "new ip %s", tstr);
 
     ggListIter it;
     for(it = m_list.begin(); it != m_list.end(); ++it)
@@ -277,6 +279,7 @@ void ggTest::LoopFunc(void)
         {
             m_list.insert(it, test);
             Notify(PRT_NOTICE, "insert");
+            Save2File();
             break;
         }
     }

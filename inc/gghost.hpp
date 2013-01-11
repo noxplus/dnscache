@@ -27,6 +27,7 @@ class ggRec
     void SetTimeout(uint32);
     uint32 GetIPAddr(void);
     uint32 GetTimeout(void);
+    void tostr(char*, int);
 };
 
 class ggHostCFG
@@ -67,6 +68,10 @@ class ggTest : public SSLTest
     void Save2File(void);
     void CheckAll(void);
     void LoopFunc(void);
+    inline uint32 GetSleepTime(void)
+    {
+        return m_cfg.Time_Sleepms * 1000;
+    }
 };
 
 #endif

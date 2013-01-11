@@ -39,7 +39,7 @@ typedef unsigned long   uint32;
 typedef unsigned short  uint16;
 typedef unsigned char   uint8;
 
-//ÑÕÉ«´úÂë
+//é¢œè‰²ä»£ç 
 #ifdef __linux__
 #define NONE        "\033[m"
 #define RED         "\033[0;31m"
