@@ -8,7 +8,7 @@
 class ggRec
 {
     private:
-    IPv4    ipaddr;
+    IPv4    ipaddr; //
     uint32  timeout;
     std::string  cert;
 

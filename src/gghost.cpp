@@ -31,6 +31,8 @@ int main(int argc, char** argv)
 }
 #endif
 
+//重载比较运算符
+//时间相等就比地址。
 bool ggRec::operator>(const ggRec& rhs)
 {
     if (timeout > rhs.timeout) return true;
@@ -115,7 +117,9 @@ void ggHostCFG::ParseArg(int argc, char** argv)
     int i;
     for (i = 1; i < argc; i++)
     {
+#ifdef ONLY_RUN
         if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
+#endif
         switch (argv[i][1])
         {
             case 'C': PraseArgInt(Connect_Timeout, 100, 10000); break;
@@ -126,7 +130,11 @@ void ggHostCFG::ParseArg(int argc, char** argv)
             case 's': PraseArgInt(Time_Sleepms, 100, 600000); break;
             case 'c': PraseArgInt(Time_to_Check, 1, 86400); break;
             default:
+#ifdef ONLY_RUN
                 Usage();
+#else
+                exit(0);
+#endif
         }
     }
 }
