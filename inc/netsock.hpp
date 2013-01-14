@@ -21,6 +21,18 @@
 #define PACKED __attribute__((packed))
 #endif
 
+typedef enum _err_no
+{
+    ERR_no = 77000000,
+    ERR_sock_error,
+    ERR_conn_error,
+    ERR_send_error,
+    ERR_recv_error,
+    ERR_conn_timeout,
+    ERR_send_timeout,
+    ERR_recv_timeout
+}ErrNo;
+
 typedef union _tp_IPv4
 {
     uint32  ipv4;

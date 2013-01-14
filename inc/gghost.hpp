@@ -5,6 +5,20 @@
 #include <list>
 #include "netsock.hpp"
 
+
+typedef struct type_ggHostCFG
+{
+    uint32         ConnTimeout;//默认1000ms
+    uint32         SSLTimeout;//默认1000ms
+    uint32         HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
+    const char*    BakFile;
+    const char*    IPBlocks;
+    uint32         ChkInter;
+    uint32         TestInter;
+}ggHostCFG;
+
+
+//获取的记录
 class ggRec
 {
     private:
@@ -30,23 +44,6 @@ class ggRec
     void tostr(char*, int);
 };
 
-class ggHostCFG
-{
-    public:
-    int32          Connect_Timeout;//默认1000ms
-    int32          SSL_Timeout;//默认1000ms
-    uint32         HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
-    const char*    BakFile;
-    const char*    IPBlocks;
-    int32          Time_to_Check;
-    int32          Time_Sleepms;
-
-    ggHostCFG(void);
-    ~ggHostCFG(void){}
-    void ReadCfg(const char*);
-    void ParseArg(int, char**);
-};
-
 typedef std::list<ggRec>            ggList;
 typedef std::list<ggRec>::iterator  ggListIter;
 
@@ -58,20 +55,20 @@ class ggTest : public SSLTest
     int         m_IPBlockCnt;
     IPv4*       m_ipHead;
     IPv4*       m_ipMask;
-    time_t      m_checkTime;
+    uint32      m_next_test;
+    uint32      m_next_check;
 
     public:
     ggTest(void);
     ~ggTest(void);
-    void InitTest(int, char**);
+    void InitCfg(void);
+    void ParseArg(int, char**);
+    void InitTest(void);
     void Load2Mem(void);
     void Save2File(void);
-    void CheckAll(void);
+    void CheckFunc(void);
+    void TestFunc(void);
     void LoopFunc(void);
-    inline uint32 GetSleepTime(void)
-    {
-        return m_cfg.Time_Sleepms * 1000;
-    }
 };
 
 #endif

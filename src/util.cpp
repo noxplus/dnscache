@@ -19,6 +19,17 @@ uint32 random32(void)
     return uiret;
 }
 
+uint32 GetTimeMs(void)
+{
+#ifdef __linux__
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec*1000 + (tv.tv_usec+500)/1000;
+#else
+    return GetTickCount();
+#endif
+}
+
 //参数：
 //      通知级别 error, notice, warning, info, debug, test
 int Notify(int level, const char *fmt, ...)

@@ -95,6 +95,8 @@ typedef unsigned char   uint8;
 
 uint32 random32(void);
 
+uint32 GetTimeMs(void);
+
 int Notify(int, const char*, ...);
 
 #endif

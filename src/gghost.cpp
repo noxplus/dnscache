@@ -20,12 +20,13 @@ int main(int argc, char** argv)
 {
     ggTest test;
 
-    test.InitTest(argc, argv);
+    test.ParseArg(argc, argv);
+
+    test.InitTest();
 
     for (;;)
     {
         test.LoopFunc();
-        usleep(test.GetSleepTime());
     }
     return 0;
 }
@@ -78,53 +79,52 @@ void ggRec::tostr(char* str, int len)
             ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
 }
 
-ggHostCFG::ggHostCFG(void)
+void ggTest::InitCfg(void)
 {
-    Connect_Timeout = 1000;     //-C
-    SSL_Timeout = 1000;         //-S
-    HostIPCnt = 20;             //-h
-    BakFile = "test.txt";       //-f
-    IPBlocks =                  //-b
+    m_cfg.ConnTimeout = 1000;       //-C
+    m_cfg.SSLTimeout = 1000;        //-S
+    m_cfg.HostIPCnt = 20;           //-h
+    m_cfg.BakFile = "test.txt";     //-f
+    m_cfg.IPBlocks =                //-b
         "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
-    Time_to_Check = 600;        //-c
-    Time_Sleepms = 1000;        //-s
-}
-void ggHostCFG::ReadCfg(const char* cfgfile)
-{
-    return;
+    m_cfg.ChkInter = 600*1000;      //-c
+    m_cfg.TestInter = 1000;         //-s
 }
 
-#define PraseArgChar(var) \
+#define PraseChar(var) \
     if (argv[i][2] != 0)\
     {\
-        var = &argv[i][2];\
+        m_cfg.var = &argv[i][2];\
     }\
-    else var = argv[++i];
+    else m_cfg.var = argv[++i];
 
-#define PraseArgInt(var, Amin, Amax) \
+#define PraseInt(var, Amin, Amax) \
     if (argv[i][2] != 0)\
     {\
-        var = atoi(&argv[i][2]);\
+        m_cfg.var = atoi(&argv[i][2]);\
     }\
-    else var = atoi(argv[++i]);\
-    if (var < Amin) var = Amin;\
-    if (var > Amax) var = Amax;
+    else m_cfg.var = atoi(argv[++i]);\
+    if (m_cfg.var < Amin) m_cfg.var = Amin;\
+    if (m_cfg.var > Amax) m_cfg.var = Amax;
 
-void ggHostCFG::ParseArg(int argc, char** argv)
+void ggTest::ParseArg(int argc, char** argv)
 {
     int i;
+
+    InitCfg();
+
     for (i = 1; i < argc; i++)
     {
         if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
         switch (argv[i][1])
         {
-            case 'C': PraseArgInt(Connect_Timeout, 100, 10000); break;
-            case 'S': PraseArgInt(SSL_Timeout, 100, 10000); break;
-            case 'h': PraseArgInt(HostIPCnt, 3, 100); break;
-            case 'f': PraseArgChar(BakFile); break;
-            case 'b': PraseArgChar(IPBlocks); break;
-            case 's': PraseArgInt(Time_Sleepms, 100, 600000); break;
-            case 'c': PraseArgInt(Time_to_Check, 1, 86400); break;
+            case 'C': PraseInt(ConnTimeout, 100, 10000); break;
+            case 'S': PraseInt(SSLTimeout, 100, 10000); break;
+            case 'h': PraseInt(HostIPCnt, 3, 100); break;
+            case 'f': PraseChar(BakFile); break;
+            case 'b': PraseChar(IPBlocks); break;
+            case 't': PraseInt(ChkInter, 1000, 86400000); break;
+            case 'c': PraseInt(TestInter, 1, 86400000); break;
             default:
                 Usage();
         }
@@ -136,7 +136,8 @@ ggTest::ggTest(void)
     m_IPBlockCnt = 0;
     m_ipHead = NULL;
     m_ipMask = NULL;
-    m_checkTime = 0;
+    m_next_test = 0;
+    m_next_check = 0;
 }
 ggTest::~ggTest(void)
 {
@@ -152,15 +153,13 @@ ggTest::~ggTest(void)
     }
 }
 
-void ggTest::InitTest(int argc, char** argv)
+void ggTest::InitTest(void)
 {
     unsigned int a,b,c,d,l;
     int i;
     const char* blocks = m_cfg.IPBlocks;
 
-    m_cfg.ParseArg(argc, argv);
-
-    SetTimeout(m_cfg.Connect_Timeout, m_cfg.SSL_Timeout, m_cfg.SSL_Timeout);
+    SetTimeout(m_cfg.ConnTimeout, m_cfg.SSLTimeout, m_cfg.SSLTimeout);
 
     for (i = 0;; i++)
     {
@@ -195,7 +194,7 @@ void ggTest::InitTest(int argc, char** argv)
     }
 
     Load2Mem();
-    CheckAll();
+    CheckFunc();
     SetIPPort(0UL, 443);
 }
 void ggTest::Load2Mem(void)
@@ -217,7 +216,7 @@ void ggTest::Load2Mem(void)
         ipread.ipc[1] = b;
         ipread.ipc[2] = c;
         ipread.ipc[3] = d;
-        ggRec recread(ipread.ipv4, m_cfg.SSL_Timeout);
+        ggRec recread(ipread.ipv4, m_cfg.SSLTimeout);
         m_list.push_back(recread);
     }
     fclose(fr);
@@ -237,46 +236,59 @@ void ggTest::Save2File(void)
     fclose(fw);
     return;
 }
-void ggTest::CheckAll(void)
+void ggTest::CheckFunc(void)
 {
     int iret;
-
-    time(&m_checkTime);
+    
+    m_next_check = GetTimeMs() + m_cfg.ChkInter;
 
     ggListIter it;
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
         iret = RunTest(it->GetIPAddr());
-        it->SetTimeout(iret);
+        if (iret > ERR_no) it->SetTimeout(m_cfg.SSLTimeout);
+        else it->SetTimeout(iret);
     }
 
     m_list.sort();
 
     Save2File();
 }
-void ggTest::LoopFunc(void)
+void ggTest::TestFunc(void)
 {
-    uint32 testip, tout;
+    uint32 tip, tout;
     int isel;
 
-    if (time(NULL) - m_checkTime > m_cfg.Time_to_Check) CheckAll();
+    m_next_test = GetTimeMs() + m_cfg.TestInter;
+    Notify(PRT_INFO, "next test %lu", m_next_test);
 
-    testip = random32();
-    isel = testip % m_IPBlockCnt;
-    testip = (testip & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
+    tip = random32();
+    isel = tip % m_IPBlockCnt;
+    tip = (tip & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
 
-    tout = RunTest(testip);
-    ggRec test(testip, tout);
+    tout = RunTest(tip);
+
+    ggRec test(tip, tout);
 
     char tstr[256];
     test.tostr(tstr, sizeof(tstr));
     Notify(PRT_INFO, "new ip %s", tstr);
 
+    if (tout > ERR_no) return;
+
     ggListIter it;
-    for(it = m_list.begin(); it != m_list.end(); ++it)
+    uint32 id = 0;
+    for(it = m_list.begin(); it != m_list.end(); ++it, ++id)
     {
         if (test < *it)
         {
+            if (id < m_cfg.HostIPCnt/3)
+            {//强制措施：前1/3数据被替换时，重新检测
+                CheckFunc();
+                it = m_list.begin();
+                id = m_cfg.HostIPCnt/3 + 1;
+                continue;
+            }
             m_list.insert(it, test);
             Notify(PRT_NOTICE, "insert");
             Save2File();
@@ -288,4 +300,29 @@ void ggTest::LoopFunc(void)
     {
         m_list.pop_back();
     }
+}
+void ggTest::LoopFunc(void)
+{
+    uint32 nowtime;
+    
+    nowtime = GetTimeMs();
+    Notify(PRT_INFO, "now %lu", nowtime);
+
+    if (m_next_check <= nowtime)
+    {
+        return CheckFunc();
+    }
+    if (m_next_test <= nowtime)
+    {
+        return TestFunc();
+    }
+
+    if (m_next_check <= m_next_test)
+    {
+        usleep(1000 * (m_next_check - nowtime));
+        return CheckFunc();
+    }
+    Notify(PRT_INFO, "sleep %lu", m_next_test - nowtime);
+    usleep(1000 * (m_next_test - nowtime));
+    return TestFunc();
 }

@@ -22,7 +22,7 @@ int NetTCP::TCPConnect(int timeout)
     if ((m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
         Notify(PRT_ERROR, "[netsock:%d]socket error", __LINE__);
-        return -1;
+        return ERR_sock_error;
     }
 
     SetSockBlock(false);
@@ -34,7 +34,7 @@ int NetTCP::TCPConnect(int timeout)
         {
             SetSockBlock(true);
             Notify(PRT_ERROR, "[%d]connect", __LINE__);
-            return -2;
+            return ERR_conn_timeout;
         }
         usleep(50 * 1000);
     }
@@ -65,7 +65,7 @@ int NetTCP::TCPSend(char* buf, int slen, int timeout)
     select(m_sock+1, NULL, &fdset, NULL, &tt);	
     if (FD_ISSET(m_sock, &fdset) == 0)
     {
-        return -1;
+        return ERR_send_error;
     }
     return send(m_sock, buf, slen, 0);
 }
@@ -84,7 +84,7 @@ int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
     select(m_sock+1, &fdset, NULL, NULL, &tt);	
     if (FD_ISSET(m_sock, &fdset) == 0)
     {
-        return -1;
+        return ERR_recv_error;
     }
     return recv(m_sock, buf, rlen, 0);
 }
@@ -113,43 +113,48 @@ SSLTest::~SSLTest()
 int SSLTest::RunTest(void)
 {
     int iret;
-    struct timeval tstart, tend;
+    uint32 tstart, tend;
     SSLHead     sslh;
     SSLHSHead   HSh;
 
+    Notify(PRT_INFO, "conn %lu", GetTimeMs());
     iret = TCPConnect(m_connect_timeout);
-    if (iret < 0 || iret >= m_connect_timeout)
+    if (iret >= ERR_no)
     {
-        return m_connect_timeout;
+        return iret;
     }
 
     iret = TCPSend((char*)&m_hello, sizeof(m_hello), m_SSL_send_timeout);
-    if (iret < 0 || iret >= m_SSL_send_timeout)
+    if (iret >= ERR_no)
     {
         TCPClose();
-        return m_SSL_send_timeout;
+        return ERR_send_timeout;
     }
 
-    gettimeofday(&tstart, NULL);
+    tstart = GetTimeMs();
 
     iret = TCPRecv((char*)&sslh, sizeof(sslh), m_SSL_recv_timeout);
-    if (iret < 0)
+    if (iret >= ERR_no)
     {
         TCPClose();
-        return m_SSL_recv_timeout;
+        return ERR_recv_timeout;
     }
     iret = TCPRecv((char*)&HSh, sizeof(HSh), m_SSL_recv_timeout);
-    if (iret < 0 || sslh.ContentType != 0x16 || HSh.HandshakeType != 0x02)
+    if (iret >= ERR_no)
     {
         TCPClose();
-        return m_SSL_recv_timeout;
+        return ERR_recv_timeout;
+    }   
+    if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x02)
+    {
+        TCPClose();
+        return ERR_recv_error;
     }
 
-    gettimeofday(&tend, NULL);
+    tend = GetTimeMs();
     TCPClose();
 
-    return (tend.tv_sec - tstart.tv_sec) * 1000 +
-        (tend.tv_usec - tstart.tv_usec + 500) / 1000;
+    return tend - tstart;
 }
 
 void SSLTest::SetTimeout(int conn, int send, int recv)
