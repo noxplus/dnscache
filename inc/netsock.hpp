@@ -115,17 +115,21 @@ typedef struct _tp_SSL_CLI_HELLO
 }PACKED SSLCliHello;
 
 
-class NetIP
+class IPBlock
 {
     private:
-        IPv4*   IPnet;  //IP子网
-        IPv4*   IPmask; //子网掩码
+        IPv4*   m_IPnet;  //IP子网
+        IPv4*   m_IPmask; //子网掩码
+        
+        uint32  m_blockcnt;
     public:
         NetIP(void);//初始化为空
         NetIP(const char*);//使用字符串初始化
+        int Init(const char*);//增加网段
         ~NetIP(void);//回收
 
-        int AddSubNet(const char*);//增加网段
+        uint32 GetCnt(void);
+
         uint32 GetRandIP(void);//获得一个子网内随机IP
 };
 
@@ -135,6 +139,10 @@ class NetTCP
         int                 m_sock; //使用的socket
         struct sockaddr_in  remote; //远端地址信息
         struct sockaddr_in  local;  //本地地址信息
+
+#ifdef _WIN32
+        static  bool wsaStatus(bool);
+#endif
 
     public:
         NetTCP();

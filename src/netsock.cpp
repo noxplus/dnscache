@@ -1,8 +1,54 @@
 #include "util.hpp"
 #include "netsock.hpp"
 
+IPBlock::NetIP(void)
+{
+    IPnet = IPmask = NULL;
+}
+IPBlock::NetIP(const char* blocks)
+{
+
+    unsigned int a,b,c,d,l;
+    int i;
+
+    for (i = 0;; i++)
+    {
+        if (sscanf(blocks, "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
+        {
+            break;
+        }
+        IPnet = (IPv4*)realloc(IPnet, (i+1)*sizeof(IPv4));
+        IPmask = (IPv4*)realloc(IPmask, (i+1)*sizeof(IPv4));
+
+        IPnet[i].ipc[0] = a;
+        IPnet[i].ipc[1] = b;
+        IPnet[i].ipc[2] = c;
+        IPnet[i].ipc[3] = d;
+
+        IPmask[i].ipc[0] = 0xFF >> l;
+        IPmask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
+        IPmask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
+        IPmask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
+        if (l >= 32) IPmask[i].ipv4 = 0U;
+
+        m_IPBlockCnt++;
+
+        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__,
+                m_ipHead[i].ipv4, m_ipMask[i].ipv4);
+        blocks = strchr(blocks, ',');
+        if (blocks == NULL) break;
+        while(*blocks < '1' || *blocks > '9')
+        {
+            if (*++blocks == 0) break;
+        }
+    }
+}
+
 NetTCP::NetTCP()
 {
+#ifdef _WIN32
+    wsaStatus(true);
+#endif
 }
 
 NetTCP::~NetTCP()
@@ -12,8 +58,42 @@ NetTCP::~NetTCP()
         close(m_sock);
         m_sock = -1;
     }
+#ifdef _WIN32
+    wsaStatus(false);
+#endif
     return;
 }
+
+#ifdef _WIN32
+bool NetTCP::wsaStatus(bool status)
+{
+    bool curStatus = false;
+    if (curStatus == status) return true;
+
+    if (status == true)
+    {//初始化wsa
+        WSADATA wsaData;
+        // Initialize Winsock version 2.2
+        if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
+        {
+            Notify(PRT_ERROR, "WSAstart up error");
+            return false;
+        }
+
+        return curStatus = true;
+    }
+
+    //清理wsa
+    if (WSACleanup() == SOCKET_ERROR)
+    {
+        printf("WSACleanup failed with error %d\n", WSAGetLastError());
+        return false;
+    }
+
+    curStatus = false;
+    return true;
+}
+#endif
 
 //connect in timeout~
 int NetTCP::TCPConnect(int timeout)
