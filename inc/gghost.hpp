@@ -52,9 +52,7 @@ class ggTest : public SSLTest
     private:
     ggList      m_list;
     ggHostCFG   m_cfg;
-    int         m_IPBlockCnt;
-    IPv4*       m_ipHead;
-    IPv4*       m_ipMask;
+    IPBlock     m_ipnet;
     uint32      m_next_test;
     uint32      m_next_check;
 

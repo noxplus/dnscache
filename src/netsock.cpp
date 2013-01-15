@@ -1,13 +1,32 @@
 #include "util.hpp"
 #include "netsock.hpp"
 
-IPBlock::NetIP(void)
+IPBlock::IPBlock(void)
 {
-    IPnet = IPmask = NULL;
+    m_IPnet = m_IPmask = NULL;
+    m_blockcnt = 0;
 }
-IPBlock::NetIP(const char* blocks)
+IPBlock::IPBlock(const char* blocks)
 {
-
+    m_IPnet = m_IPmask = NULL;
+    m_blockcnt = 0;
+    Init(blocks);
+}
+IPBlock::~IPBlock(void)
+{
+    if (m_IPnet != NULL)
+    {
+        free(m_IPnet);
+        m_IPnet = NULL;
+    }
+    if (m_IPmask != NULL)
+    {
+        free(m_IPmask);
+        m_IPmask = NULL;
+    }
+}
+int IPBlock::Init(const char* blocks)
+{
     unsigned int a,b,c,d,l;
     int i;
 
@@ -17,24 +36,24 @@ IPBlock::NetIP(const char* blocks)
         {
             break;
         }
-        IPnet = (IPv4*)realloc(IPnet, (i+1)*sizeof(IPv4));
-        IPmask = (IPv4*)realloc(IPmask, (i+1)*sizeof(IPv4));
+        m_IPnet = (IPv4*)realloc(m_IPnet, (i+1)*sizeof(IPv4));
+        m_IPmask = (IPv4*)realloc(m_IPmask, (i+1)*sizeof(IPv4));
 
-        IPnet[i].ipc[0] = a;
-        IPnet[i].ipc[1] = b;
-        IPnet[i].ipc[2] = c;
-        IPnet[i].ipc[3] = d;
+        m_IPnet[i].ipc[0] = a;
+        m_IPnet[i].ipc[1] = b;
+        m_IPnet[i].ipc[2] = c;
+        m_IPnet[i].ipc[3] = d;
 
-        IPmask[i].ipc[0] = 0xFF >> l;
-        IPmask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
-        IPmask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
-        IPmask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
-        if (l >= 32) IPmask[i].ipv4 = 0U;
+        m_IPmask[i].ipc[0] = 0xFF >> l;
+        m_IPmask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
+        m_IPmask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
+        m_IPmask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
+        if (l >= 32) m_IPmask[i].ipv4 = 0U;
 
-        m_IPBlockCnt++;
+        m_blockcnt++;
 
-        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__,
-                m_ipHead[i].ipv4, m_ipMask[i].ipv4);
+        Notify(PRT_INFO, "[IPBlock]IP[%lx]mask[%lx]", __LINE__,
+                m_IPnet[i].ipv4, m_IPmask[i].ipv4);
         blocks = strchr(blocks, ',');
         if (blocks == NULL) break;
         while(*blocks < '1' || *blocks > '9')
@@ -42,6 +61,20 @@ IPBlock::NetIP(const char* blocks)
             if (*++blocks == 0) break;
         }
     }
+
+    return m_blockcnt;
+}
+uint32 IPBlock::GetCnt(void)
+{
+    return m_blockcnt;
+}
+uint32 IPBlock::GetRandIP(void)
+{
+    uint32 tip, isel;
+    tip = random32();
+    isel = tip % m_blockcnt;
+    tip = (tip & m_IPmask[isel].ipv4) | m_IPnet[isel].ipv4;
+    return tip;
 }
 
 NetTCP::NetTCP()
@@ -76,7 +109,8 @@ bool NetTCP::wsaStatus(bool status)
         // Initialize Winsock version 2.2
         if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
         {
-            Notify(PRT_ERROR, "WSAstart up error");
+            Notify(PRT_ERROR, "WSACleanup error %d",
+                    WSAGetLastError());
             return false;
         }
 
@@ -86,7 +120,8 @@ bool NetTCP::wsaStatus(bool status)
     //«Â¿Ìwsa
     if (WSACleanup() == SOCKET_ERROR)
     {
-        printf("WSACleanup failed with error %d\n", WSAGetLastError());
+        Notify(PRT_ERROR, "WSACleanup error %d",
+                WSAGetLastError());
         return false;
     }
 
@@ -98,10 +133,9 @@ bool NetTCP::wsaStatus(bool status)
 //connect in timeout~
 int NetTCP::TCPConnect(int timeout)
 {
-    int i, iret;
+    int i, iret = -1;
     if ((m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
-        Notify(PRT_ERROR, "[netsock:%d]socket error", __LINE__);
         return ERR_sock_error;
     }
 
@@ -113,12 +147,15 @@ int NetTCP::TCPConnect(int timeout)
         if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
         {
             SetSockBlock(true);
-            Notify(PRT_ERROR, "[%d]connect", __LINE__);
-            return ERR_conn_timeout;
+            return ERR_conn_error;
         }
         usleep(50 * 1000);
     }
     SetSockBlock(true);
+    if (iret != 0)
+    {
+        return ERR_conn_timeout;
+    }
     return 0;
 }
 void NetTCP::TCPClose()
@@ -135,19 +172,28 @@ void NetTCP::TCPClose()
 //return time ( <0 in error)
 int NetTCP::TCPSend(char* buf, int slen, int timeout)
 {
+    int iret = -1, isent = 0;
     struct timeval tt;
     fd_set fdset;
 
     tt.tv_sec = timeout / 1000;
     tt.tv_usec = timeout % 1000 * 1000;
-    FD_ZERO(&fdset);
-    FD_SET(m_sock, &fdset);
-    select(m_sock+1, NULL, &fdset, NULL, &tt);	
-    if (FD_ISSET(m_sock, &fdset) == 0)
+    while (tt.tv_sec != 0 || tt.tv_usec != 0)
     {
-        return ERR_send_error;
+        FD_ZERO(&fdset);
+        FD_SET(m_sock, &fdset);
+        select(m_sock+1, NULL, &fdset, NULL, &tt);	
+        if (FD_ISSET(m_sock, &fdset) == 0)
+        {
+            continue;
+            return ERR_send_error;
+        }
+        iret = send(m_sock, buf + isent, slen - isent, 0);
+        if (iret < 0) return ERR_send_error;
+        isent += iret;
+        if (isent >= slen) return 0;
     }
-    return send(m_sock, buf, slen, 0);
+    return ERR_send_timeout;
 }
 
 //recv buf in timeout
@@ -197,7 +243,6 @@ int SSLTest::RunTest(void)
     SSLHead     sslh;
     SSLHSHead   HSh;
 
-    Notify(PRT_INFO, "conn %lu", GetTimeMs());
     iret = TCPConnect(m_connect_timeout);
     if (iret >= ERR_no)
     {

@@ -123,10 +123,10 @@ class IPBlock
         
         uint32  m_blockcnt;
     public:
-        NetIP(void);//初始化为空
-        NetIP(const char*);//使用字符串初始化
+        IPBlock(void);//初始化为空
+        IPBlock(const char*);//使用字符串初始化
         int Init(const char*);//增加网段
-        ~NetIP(void);//回收
+        ~IPBlock(void);//回收
 
         uint32 GetCnt(void);
 

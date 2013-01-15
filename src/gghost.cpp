@@ -141,65 +141,18 @@ void ggTest::ParseArg(int argc, char** argv)
 
 ggTest::ggTest(void)
 {
-    m_IPBlockCnt = 0;
-    m_ipHead = NULL;
-    m_ipMask = NULL;
     m_next_test = 0;
     m_next_check = 0;
 }
 ggTest::~ggTest(void)
 {
-    if (m_ipHead != NULL)
-    {
-        free(m_ipHead);
-        m_ipHead = NULL;
-    }
-    if (m_ipMask != NULL)
-    {
-        free(m_ipMask);
-        m_ipMask = NULL;
-    }
 }
 
 void ggTest::InitTest(void)
 {
-    unsigned int a,b,c,d,l;
-    int i;
-    const char* blocks = m_cfg.IPBlocks;
-
     SetTimeout(m_cfg.ConnTimeout, m_cfg.SSLTimeout, m_cfg.SSLTimeout);
 
-    for (i = 0;; i++)
-    {
-        if (sscanf(blocks, "%d.%d.%d.%d/%d", &a, &b, &c, &d ,&l) != 5)
-        {
-            break;
-        }
-        m_ipHead = (IPv4*)realloc(m_ipHead, (i+1)*sizeof(IPv4));
-        m_ipMask = (IPv4*)realloc(m_ipMask, (i+1)*sizeof(IPv4));
-
-        m_ipHead[i].ipc[0] = a;
-        m_ipHead[i].ipc[1] = b;
-        m_ipHead[i].ipc[2] = c;
-        m_ipHead[i].ipc[3] = d;
-
-        m_ipMask[i].ipc[0] = 0xFF >> l;
-        m_ipMask[i].ipc[1] = 0xFF >> (l >= 8?l-8:0);
-        m_ipMask[i].ipc[2] = 0xFF >> (l >= 16?l-16:0);
-        m_ipMask[i].ipc[3] = 0xFF >> (l >= 24?l-24:0);
-        if (l >= 32) m_ipMask[i].ipv4 = 0U;
-
-        m_IPBlockCnt++;
-
-        Notify(PRT_INFO, "[testgg:%d] IP[%lx] mask[%lx]", __LINE__,
-                m_ipHead[i].ipv4, m_ipMask[i].ipv4);
-        blocks = strchr(blocks, ',');
-        if (blocks == NULL) break;
-        while(*blocks < '1' || *blocks > '9')
-        {
-            if (*++blocks == 0) break;
-        }
-    }
+    m_ipnet.Init(m_cfg.IPBlocks);
 
     Load2Mem();
     CheckFunc();
@@ -256,6 +209,10 @@ void ggTest::CheckFunc(void)
         iret = RunTest(it->GetIPAddr());
         if (iret > ERR_no) it->SetTimeout(m_cfg.SSLTimeout);
         else it->SetTimeout(iret);
+
+        char tstr[256];
+        it->tostr(tstr, sizeof(tstr));
+        Notify(PRT_DEBUG, "Check ip %s", tstr);
     }
 
     m_list.sort();
@@ -265,22 +222,17 @@ void ggTest::CheckFunc(void)
 void ggTest::TestFunc(void)
 {
     uint32 tip, tout;
-    int isel;
 
     m_next_test = GetTimeMs() + m_cfg.TestInter;
-    Notify(PRT_INFO, "next test %lu", m_next_test);
 
-    tip = random32();
-    isel = tip % m_IPBlockCnt;
-    tip = (tip & m_ipMask[isel].ipv4) | m_ipHead[isel].ipv4;
-
+    tip = m_ipnet.GetRandIP();
     tout = RunTest(tip);
 
     ggRec test(tip, tout);
 
     char tstr[256];
     test.tostr(tstr, sizeof(tstr));
-    Notify(PRT_INFO, "new ip %s", tstr);
+    Notify(PRT_DEBUG, "test ip %s", tstr);
 
     if (tout > ERR_no) return;
 
@@ -311,26 +263,20 @@ void ggTest::TestFunc(void)
 }
 void ggTest::LoopFunc(void)
 {
-    uint32 nowtime;
-    
-    nowtime = GetTimeMs();
-    Notify(PRT_INFO, "now %lu", nowtime);
-
-    if (m_next_check <= nowtime)
+    if (m_next_check <= GetTimeMs())
     {
         return CheckFunc();
     }
-    if (m_next_test <= nowtime)
+    if (m_next_test <= GetTimeMs())
     {
         return TestFunc();
     }
 
     if (m_next_check <= m_next_test)
     {
-        usleep(1000 * (m_next_check - nowtime));
+        usleep(1000 * (m_next_check - GetTimeMs()));
         return CheckFunc();
     }
-    Notify(PRT_INFO, "sleep %lu", m_next_test - nowtime);
-    usleep(1000 * (m_next_test - nowtime));
+    usleep(1000 * (m_next_test - GetTimeMs()));
     return TestFunc();
 }
