@@ -11,6 +11,7 @@ BIN:=$(BASE)/bin
 vpath %.c $(SRC)
 vpath %.cpp $(SRC)
 vpath %.h $(INC)
+vpath %.hpp $(INC)
 vpath %.o $(TMP)
 
 ARCH:=LANGUAGE=C 
@@ -22,7 +23,7 @@ DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=
 
-TARGET=util rbtree gghost transdns main
+TARGET=util netsock gghost
 
 none:
 	@echo all target: $(TARGET)
@@ -32,9 +33,10 @@ bin : $(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	${CC} -o $(BIN)/dnscache $^ $(LFLAG)
 
-%.o : %.c
-	${CC} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
-%.o : %.cpp
+main.o : main.cpp
+	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
+
+%.o : %.cpp %.hpp util.hpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
 gghost : gghost.cpp netsock.cpp util.cpp
