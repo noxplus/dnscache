@@ -246,6 +246,7 @@ int SSLTest::RunTest(void)
     iret = TCPConnect(m_connect_timeout);
     if (iret >= ERR_no)
     {
+        TCPClose();
         return iret;
     }
 

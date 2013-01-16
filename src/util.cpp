@@ -8,9 +8,10 @@ uint32 random32(void)
 {
     uint32 uiret = 0;
 #ifdef __linux__
-    int fd = open("/dev/urandom", O_RDONLY);
+    static int fd = -1;
+    if (fd == -1) fd = open("/dev/urandom", O_RDONLY);
     read(fd, &uiret, sizeof(uiret));
-    close(fd);
+    //close(fd);
 #endif
 #ifdef _WIN32
     rand_s((uint*)&uiret);

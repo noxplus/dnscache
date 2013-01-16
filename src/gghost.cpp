@@ -5,14 +5,14 @@
 #ifdef ONLY_RUN
 int Usage(void)
 {
-    fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-s sleep_time] [-c check_time]\n");
+    fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-t test_time] [-c check_time]\n");
     fprintf(stderr, "\t -C : timeout(ms) for connect to google IP.\n");
     fprintf(stderr, "\t -S : timeout(ms) for send SSL package.\n");
     fprintf(stderr, "\t -h : save count of host IP.\n");
     fprintf(stderr, "\t -f : save file.\n");
     fprintf(stderr, "\t -b : IP blocks like '74.125.0.0/16,173.194.0.0/16'.\n");
-    fprintf(stderr, "\t -s : sleep time(ms) between IP tries.\n");
-    fprintf(stderr, "\t -c : time(s) between checks.\n");
+    fprintf(stderr, "\t -t : time(ms) between IP tries.\n");
+    fprintf(stderr, "\t -c : time(ms) between checks.\n");
     exit(1);
 }
 
@@ -29,6 +29,11 @@ int main(int argc, char** argv)
         test.LoopFunc();
     }
     return 0;
+}
+#else
+int Usage(void)
+{
+    exit(0);
 }
 #endif
 
@@ -83,9 +88,9 @@ void ggRec::tostr(char* str, int len)
 
 void ggTest::InitCfg(void)
 {
-    m_cfg.ConnTimeout = 1000;       //-C
-    m_cfg.SSLTimeout = 1000;        //-S
-    m_cfg.HostIPCnt = 20;           //-h
+    m_cfg.ConnTimeout = 500;       //-C
+    m_cfg.SSLTimeout = 500;        //-S
+    m_cfg.HostIPCnt = 30;           //-h
     m_cfg.BakFile = "test.txt";     //-f
     m_cfg.IPBlocks =                //-b
         "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
@@ -98,14 +103,16 @@ void ggTest::InitCfg(void)
     {\
         m_cfg.var = &argv[i][2];\
     }\
-    else m_cfg.var = argv[++i];
+    else if (i < argc - 1) m_cfg.var = argv[++i];\
+    else Usage();
 
 #define PraseInt(var, Amin, Amax) \
     if (argv[i][2] != 0)\
     {\
         m_cfg.var = atoi(&argv[i][2]);\
     }\
-    else m_cfg.var = atoi(argv[++i]);\
+    else if (i < argc - 1) m_cfg.var = atoi(argv[++i]);\
+    else Usage();\
     if (m_cfg.var < Amin) m_cfg.var = Amin;\
     if (m_cfg.var > Amax) m_cfg.var = Amax;
 
@@ -124,17 +131,13 @@ void ggTest::ParseArg(int argc, char** argv)
         {
             case 'C': PraseInt(ConnTimeout, 100, 10000); break;
             case 'S': PraseInt(SSLTimeout, 100, 10000); break;
-            case 'h': PraseInt(HostIPCnt, 3, 100); break;
+            case 'h': PraseInt(HostIPCnt, 5, 100); break;
             case 'f': PraseChar(BakFile); break;
             case 'b': PraseChar(IPBlocks); break;
-            case 't': PraseInt(ChkInter, 1000, 86400000); break;
-            case 'c': PraseInt(TestInter, 1, 86400000); break;
+            case 't': PraseInt(TestInter, 100, 86400000); break;
+            case 'c': PraseInt(ChkInter, 1000, 86400000); break;
             default:
-#ifdef ONLY_RUN
                 Usage();
-#else
-                exit(0);
-#endif
         }
     }
 }
@@ -251,14 +254,20 @@ void ggTest::TestFunc(void)
             }
             m_list.insert(it, test);
             Notify(PRT_NOTICE, "insert");
+            if (m_list.size() > m_cfg.HostIPCnt)
+            {
+                m_list.pop_back();
+            }
             Save2File();
             break;
         }
     }
 
-    if (m_list.size() > m_cfg.HostIPCnt)
+    if (it == m_list.end() && m_list.size() < m_cfg.HostIPCnt)
     {
-        m_list.pop_back();
+        m_list.push_back(test);
+        Notify(PRT_NOTICE, "insert tail");
+        Save2File();
     }
 }
 void ggTest::LoopFunc(void)
