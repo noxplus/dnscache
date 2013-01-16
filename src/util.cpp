@@ -31,6 +31,15 @@ uint32 GetTimeMs(void)
 #endif
 }
 
+void SleepMS(uint32 stime)
+{
+#ifdef _WIN32
+    Sleep(stime);
+#else
+    usleep(stime * 1000);
+#endif
+}
+
 //参数：
 //      通知级别 error, notice, warning, info, debug, test
 int Notify(int level, const char *fmt, ...)

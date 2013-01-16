@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <errno.h>
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -96,6 +94,8 @@ typedef unsigned char   uint8;
 uint32 random32(void);
 
 uint32 GetTimeMs(void);
+
+void SleepMS(uint32);
 
 int Notify(int, const char*, ...);
 

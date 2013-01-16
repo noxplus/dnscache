@@ -1,6 +1,10 @@
 #include "util.hpp"
 #include "netsock.hpp"
 
+#ifdef _WIN32
+#pragma comment(lib, "ws2_32.lib")
+#endif
+
 IPBlock::IPBlock(void)
 {
     m_IPnet = m_IPmask = NULL;
@@ -86,11 +90,7 @@ NetTCP::NetTCP()
 
 NetTCP::~NetTCP()
 {
-    if (m_sock != -1)
-    {
-        close(m_sock);
-        m_sock = -1;
-    }
+    TCPClose();
 #ifdef _WIN32
     wsaStatus(false);
 #endif
@@ -144,12 +144,22 @@ int NetTCP::TCPConnect(int timeout)
     {
         iret = connect(m_sock, (struct sockaddr*)&remote, sizeof(remote));
         if (iret == 0 || errno == EISCONN) break;//OK~
+#ifdef __linux__
         if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
+#endif
+#ifdef _WIN32
+        if (iret == -1 &&
+                WSAGetLastError() != WSAEWOULDBLOCK &&
+                WSAGetLastError() != WSAEINPROGRESS &&
+                WSAGetLastError() != WSAEALREADY
+                )
+#endif
         {
+            Notify(PRT_ERROR, "connect");
             SetSockBlock(true);
             return ERR_conn_error;
         }
-        usleep(50 * 1000);
+        SleepMS(50 * 1000);
     }
     SetSockBlock(true);
     if (iret != 0)
@@ -162,7 +172,12 @@ void NetTCP::TCPClose()
 {
     if (m_sock != -1)
     {
+#ifdef __linux__
         close(m_sock);
+#endif
+#ifdef _WIN32
+        closesocket(m_sock);
+#endif
         m_sock = -1;
     }
     return;
@@ -182,7 +197,7 @@ int NetTCP::TCPSend(char* buf, int slen, int timeout)
     {
         FD_ZERO(&fdset);
         FD_SET(m_sock, &fdset);
-        select(m_sock+1, NULL, &fdset, NULL, &tt);	
+        select(m_sock+1, NULL, &fdset, NULL, &tt);
         if (FD_ISSET(m_sock, &fdset) == 0)
         {
             continue;
@@ -207,7 +222,7 @@ int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
     tt.tv_usec = timeout%1000 * 1000;
     FD_ZERO(&fdset);
     FD_SET(m_sock, &fdset);
-    select(m_sock+1, &fdset, NULL, NULL, &tt);	
+    select(m_sock+1, &fdset, NULL, NULL, &tt);
     if (FD_ISSET(m_sock, &fdset) == 0)
     {
         return ERR_recv_error;
@@ -270,7 +285,7 @@ int SSLTest::RunTest(void)
     {
         TCPClose();
         return ERR_recv_timeout;
-    }   
+    }
     if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x02)
     {
         TCPClose();

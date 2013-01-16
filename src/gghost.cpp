@@ -39,6 +39,7 @@ int Usage(void)
 
 //重载比较运算符
 //时间相等就比地址。
+
 bool ggRec::operator>(const ggRec& rhs)
 {
     if (timeout > rhs.timeout) return true;
@@ -82,7 +83,11 @@ uint32 ggRec::GetTimeout(void)
 }
 void ggRec::tostr(char* str, int len)
 {
+#ifdef _WIN32
+    _snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
+#else
     snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
+#endif
             ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
 }
 
@@ -190,7 +195,7 @@ void ggTest::Save2File(void)
 {
     FILE* fw = fopen(m_cfg.BakFile, "w");
     if (fw == NULL) return;
-    
+
     ggListIter it;
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
@@ -203,7 +208,7 @@ void ggTest::Save2File(void)
 void ggTest::CheckFunc(void)
 {
     int iret;
-    
+
     m_next_check = GetTimeMs() + m_cfg.ChkInter;
 
     ggListIter it;
@@ -283,9 +288,9 @@ void ggTest::LoopFunc(void)
 
     if (m_next_check <= m_next_test)
     {
-        usleep(1000 * (m_next_check - GetTimeMs()));
+        SleepMS(m_next_check - GetTimeMs());
         return CheckFunc();
     }
-    usleep(1000 * (m_next_test - GetTimeMs()));
+    SleepMS(m_next_test - GetTimeMs());
     return TestFunc();
 }

@@ -17,10 +17,6 @@
 #include <pthread.h>
 #endif
 
-#ifdef __GNUC__
-#define PACKED __attribute__((packed))
-#endif
-
 typedef enum _err_no
 {
     ERR_no = 77000000,
@@ -88,18 +84,22 @@ typedef struct _tp_local_query
     char        data[512];
 }LocalQuery;
 
+#pragma pack(push)
+#pragma pack(1)
 typedef struct _in_SSL_HEAD
 {
     uint8       ContentType;    //==22 Handshake
     uint16      SSLVer;         //==0x0301 TLS1.0
     uint16      ContentLen;     //使用网络字节序
-}PACKED SSLHead;
+}SSLHead;
+
 typedef struct _in_HandShake_HEAD
 {
     uint8       HandshakeType;  //==0x01 Client Hello
     uint8       LenHi;          //长度高8位
     uint16      LenLo;          //长度低16位
-}PACKED SSLHSHead;
+}SSLHSHead;
+
 typedef struct _tp_SSL_CLI_HELLO
 {
     SSLHead     ssl;
@@ -112,7 +112,9 @@ typedef struct _tp_SSL_CLI_HELLO
     uint8       CompMethLen;    //1
     uint8       CompMeth;       //==0 (null)
     //extension
-}PACKED SSLCliHello;
+}SSLCliHello;
+
+#pragma pack(pop)
 
 
 class IPBlock
@@ -120,7 +122,7 @@ class IPBlock
     private:
         IPv4*   m_IPnet;  //IP子网
         IPv4*   m_IPmask; //子网掩码
-        
+
         uint32  m_blockcnt;
     public:
         IPBlock(void);//初始化为空
@@ -166,7 +168,7 @@ private:
     SSLCliHello     m_hello; //ssh报文
     int             m_connect_timeout; //连接超时
     int             m_SSL_send_timeout; //发送超时
-    int             m_SSL_recv_timeout; //接收超时 
+    int             m_SSL_recv_timeout; //接收超时
 
 public:
     SSLTest();
@@ -208,7 +210,7 @@ inline int NetTCP::SetSockBlock(bool block)
 
 #ifdef _WIN32
     unsigned long mode = (block == true ? 0 : 1);
-    return (ioctlsocket(fd, FIONBIO, &mode) == 0) ? true : false;
+    return (ioctlsocket(m_sock, FIONBIO, &mode) == 0) ? true : false;
 #endif
 #ifdef __linux__
     int flags;

@@ -19,6 +19,7 @@ typedef struct type_ggHostCFG
 
 
 //获取的记录
+
 class ggRec
 {
     private:
