@@ -20,6 +20,8 @@ uint32 random32(void)
     return uiret;
 }
 
+//获取毫秒数
+//结果总是用来相减，所以不用考虑0值
 uint32 GetTimeMs(void)
 {
 #ifdef __linux__

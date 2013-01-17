@@ -91,9 +91,6 @@ NetTCP::NetTCP()
 NetTCP::~NetTCP()
 {
     TCPClose();
-#ifdef _WIN32
-    wsaStatus(false);
-#endif
     return;
 }
 
@@ -144,9 +141,6 @@ int NetTCP::TCPConnect(int timeout)
     {
         iret = connect(m_sock, (struct sockaddr*)&remote, sizeof(remote));
         if (iret == 0 || errno == EISCONN) break;//OK~
-#ifdef __linux__
-        if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
-#endif
 #ifdef _WIN32
         if (iret == -1 &&
                 WSAGetLastError() != WSAEWOULDBLOCK &&
@@ -154,12 +148,15 @@ int NetTCP::TCPConnect(int timeout)
                 WSAGetLastError() != WSAEALREADY
                 )
 #endif
+#ifdef __linux__
+        if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
+#endif
         {
             Notify(PRT_ERROR, "connect");
             SetSockBlock(true);
             return ERR_conn_error;
         }
-        SleepMS(50 * 1000);
+        SleepMS(50);
     }
     SetSockBlock(true);
     if (iret != 0)
@@ -172,11 +169,11 @@ void NetTCP::TCPClose()
 {
     if (m_sock != -1)
     {
-#ifdef __linux__
-        close(m_sock);
-#endif
 #ifdef _WIN32
         closesocket(m_sock);
+#endif
+#ifdef __linux__
+        close(m_sock);
 #endif
         m_sock = -1;
     }
@@ -197,11 +194,10 @@ int NetTCP::TCPSend(char* buf, int slen, int timeout)
     {
         FD_ZERO(&fdset);
         FD_SET(m_sock, &fdset);
-        select(m_sock+1, NULL, &fdset, NULL, &tt);
+        select(SelSck(m_sock), NULL, &fdset, NULL, &tt);
         if (FD_ISSET(m_sock, &fdset) == 0)
         {
             continue;
-            return ERR_send_error;
         }
         iret = send(m_sock, buf + isent, slen - isent, 0);
         if (iret < 0) return ERR_send_error;
@@ -212,22 +208,30 @@ int NetTCP::TCPSend(char* buf, int slen, int timeout)
 }
 
 //recv buf in timeout
-//return time ( <0 in error)
+//return time
 int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
 {
+    int iret = -1, irecv = 0;
     struct  timeval tt;
     fd_set  fdset;
 
     tt.tv_sec = timeout/1000;
     tt.tv_usec = timeout%1000 * 1000;
-    FD_ZERO(&fdset);
-    FD_SET(m_sock, &fdset);
-    select(m_sock+1, &fdset, NULL, NULL, &tt);
-    if (FD_ISSET(m_sock, &fdset) == 0)
+    while (tt.tv_sec != 0 || tt.tv_usec != 0)
     {
-        return ERR_recv_error;
+        FD_ZERO(&fdset);
+        FD_SET(m_sock, &fdset);
+        select(SelSck(m_sock), &fdset, NULL, NULL, &tt);
+        if (FD_ISSET(m_sock, &fdset) == 0)
+        {
+            continue;
+        }
+        iret = recv(m_sock, buf + irecv, rlen - irecv, 0);
+        if (iret < 0) return ERR_recv_error;
+        irecv += iret;
+        if (irecv >= rlen) return 0;
     }
-    return recv(m_sock, buf, rlen, 0);
+    return ERR_recv_timeout;
 }
 
 SSLTest::SSLTest()

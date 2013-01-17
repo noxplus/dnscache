@@ -17,6 +17,13 @@
 #include <pthread.h>
 #endif
 
+#ifdef _WIN32
+#define SelSck(sock) (0)
+#endif
+#ifdef __linux__
+#define SelSck(sock) (sock+1)
+#endif
+
 typedef enum _err_no
 {
     ERR_no = 77000000,
@@ -113,7 +120,6 @@ typedef struct _tp_SSL_CLI_HELLO
     uint8       CompMeth;       //==0 (null)
     //extension
 }SSLCliHello;
-
 #pragma pack(pop)
 
 
