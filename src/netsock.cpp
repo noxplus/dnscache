@@ -140,22 +140,36 @@ int NetTCP::TCPConnect(int timeout)
     for (i = 0; i < timeout; i+= 50)
     {
         iret = connect(m_sock, (struct sockaddr*)&remote, sizeof(remote));
-        if (iret == 0 || errno == EISCONN) break;//OK~
 #ifdef _WIN32
+        if (iret == 0 || WSAGetLastError() == WSAEISCONN)
+        {
+            SetSockBlock(true);
+            return 0;
+        }
         if (iret == -1 &&
                 WSAGetLastError() != WSAEWOULDBLOCK &&
                 WSAGetLastError() != WSAEINPROGRESS &&
                 WSAGetLastError() != WSAEALREADY
-                )
-#endif
-#ifdef __linux__
-        if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
-#endif
+           )
         {
             Notify(PRT_ERROR, "connect");
             SetSockBlock(true);
             return ERR_conn_error;
         }
+#endif
+#ifdef __linux__
+        if (iret == 0 || errno == EISCONN)
+        {
+            SetSockBlock(true);
+            return 0;
+        }
+        if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
+        {
+            Notify(PRT_ERROR, "connect");
+            SetSockBlock(true);
+            return ERR_conn_error;
+        }
+#endif
         SleepMS(50);
     }
     SetSockBlock(true);

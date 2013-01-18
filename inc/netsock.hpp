@@ -36,13 +36,13 @@ typedef enum _err_no
     ERR_recv_timeout
 }ErrNo;
 
-typedef union _tp_IPv4
+typedef union
 {
     uint32  ipv4;
     uint8   ipc[4];
 }IPv4;
 
-typedef struct _tp_dns_head
+typedef struct
 {
     uint16  TranID;
     uint16  Flags;
@@ -52,14 +52,14 @@ typedef struct _tp_dns_head
     uint16  Addits;
 }DnsHead;
 
-typedef struct _tp_dns_qrecd
+typedef struct
 {
     uint8   NameLen;
     char    Name[NAMEMAXLEN];
     uint16  Type;
     uint16  Class;
 }DnsQueryRec;
-typedef struct _tp_dns_arecd
+typedef struct
 {
     uint8   NameLen;
     char    Name[NAMEMAXLEN];
@@ -70,7 +70,7 @@ typedef struct _tp_dns_arecd
     IPv4    IPadd;
 }DnsAnswerRec;
 
-typedef struct _tp_dns_recode
+typedef struct
 {
     uint32 Index;   //
     uint32 Type;    //
@@ -83,7 +83,7 @@ typedef struct _tp_dns_recode
     IPv4 ip;
 }DNSRecode, *pDNSRecode;
 
-typedef struct _tp_local_query
+typedef struct
 {
     int         sktfd;
     struct sockaddr_in localadd;
@@ -93,21 +93,21 @@ typedef struct _tp_local_query
 
 #pragma pack(push)
 #pragma pack(1)
-typedef struct _in_SSL_HEAD
+typedef struct
 {
     uint8       ContentType;    //==22 Handshake
     uint16      SSLVer;         //==0x0301 TLS1.0
     uint16      ContentLen;     //使用网络字节序
 }SSLHead;
 
-typedef struct _in_HandShake_HEAD
+typedef struct
 {
     uint8       HandshakeType;  //==0x01 Client Hello
     uint8       LenHi;          //长度高8位
     uint16      LenLo;          //长度低16位
 }SSLHSHead;
 
-typedef struct _tp_SSL_CLI_HELLO
+typedef struct
 {
     SSLHead     ssl;
     SSLHSHead   hands;
@@ -170,20 +170,20 @@ class NetTCP
 
 class SSLTest : public NetTCP
 {
-private:
-    SSLCliHello     m_hello; //ssh报文
-    int             m_connect_timeout; //连接超时
-    int             m_SSL_send_timeout; //发送超时
-    int             m_SSL_recv_timeout; //接收超时
+    private:
+        SSLCliHello     m_hello; //ssh报文
+        int             m_connect_timeout; //连接超时
+        int             m_SSL_send_timeout; //发送超时
+        int             m_SSL_recv_timeout; //接收超时
 
-public:
-    SSLTest();
-    ~SSLTest();
+    public:
+        SSLTest();
+        ~SSLTest();
 
-    void SetTimeout(int, int, int);
-    int RunTest(void);
-    int RunTest(const char*);
-    int RunTest(uint32);
+        void SetTimeout(int, int, int);
+        int RunTest(void);
+        int RunTest(const char*);
+        int RunTest(uint32);
 };
 
 //设定ip、port

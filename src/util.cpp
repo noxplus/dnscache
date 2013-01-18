@@ -104,7 +104,7 @@ int Notify(int level, const char *fmt, ...)
     HANDLE hConsole;
     if (fp == stderr) hConsole = GetStdHandle(STD_ERROR_HANDLE);
     else hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    SetConsoleTextAttribute(hConsole, WHITE);
+    SetConsoleTextAttribute(hConsole, LGRAY);
     fprintf(fp, "[%02d:%02d:%02d.%03d]", hour, min, sec, msec);
     SetConsoleTextAttribute(hConsole, lvlclr[level]);
     if (level == PRT_ERROR)
@@ -115,7 +115,7 @@ int Notify(int level, const char *fmt, ...)
     {
         fprintf(fp, "[%s] %s\n", lvlstr[level], strbuf);
     }
-    SetConsoleTextAttribute(hConsole, WHITE);
+    SetConsoleTextAttribute(hConsole, LGRAY);
 #endif
     return cnt;
 }

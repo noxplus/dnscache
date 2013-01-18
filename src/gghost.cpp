@@ -1,7 +1,6 @@
 #include "util.hpp"
 #include "gghost.hpp"
 
-
 #ifdef ONLY_RUN
 int Usage(void)
 {
@@ -39,7 +38,6 @@ int Usage(void)
 
 //重载比较运算符
 //时间相等就比地址。
-
 bool ggRec::operator>(const ggRec& rhs)
 {
     if (timeout > rhs.timeout) return true;
@@ -85,10 +83,11 @@ void ggRec::tostr(char* str, int len)
 {
 #ifdef _WIN32
     _snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
+            ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
 #else
     snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
-#endif
             ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
+#endif
 }
 
 void ggTest::InitCfg(void)
@@ -100,7 +99,7 @@ void ggTest::InitCfg(void)
     m_cfg.IPBlocks =                //-b
         "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
     m_cfg.ChkInter = 600*1000;      //-c
-    m_cfg.TestInter = 1000;         //-s
+    m_cfg.TestInter = 2000;         //-s
 }
 
 #define PraseChar(var) \
@@ -142,7 +141,7 @@ void ggTest::ParseArg(int argc, char** argv)
             case 't': PraseInt(TestInter, 100, 86400000); break;
             case 'c': PraseInt(ChkInter, 1000, 86400000); break;
             default:
-                Usage();
+                      Usage();
         }
     }
 }

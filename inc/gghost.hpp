@@ -6,43 +6,41 @@
 #include "netsock.hpp"
 
 
-typedef struct type_ggHostCFG
+typedef struct
 {
-    uint32         ConnTimeout;//默认1000ms
-    uint32         SSLTimeout;//默认1000ms
-    uint32         HostIPCnt; //默认：0～cnt-1存地址，cnt存新入的。共cnt+1
-    const char*    BakFile;
-    const char*    IPBlocks;
-    uint32         ChkInter;
-    uint32         TestInter;
+    uint32         ConnTimeout; //connetc的超时 默认500ms
+    uint32         SSLTimeout;  //发送ssl数据的超时 默认500ms
+    uint32         HostIPCnt;   //保留的IP地址个数。默认30
+    const char*    BakFile;     //IP地址存储文件。默认test.txt
+    const char*    IPBlocks;    //google IP网段。
+    uint32         ChkInter;    //检测保存数据间隔。默认600s
+    uint32         TestInter;   //测试时间间隔。默认2秒
 }ggHostCFG;
 
-
-//获取的记录
-
+//一组记录
 class ggRec
 {
     private:
-    IPv4    ipaddr; //
-    uint32  timeout;
-    std::string  cert;
+        IPv4    ipaddr;     //IP地址
+        uint32  timeout;    //超时
+        std::string  cert;  //证书 - 暂未使用
 
     public:
-    ggRec(uint32 ip, uint32 time = (uint32)-1)
-    {
-        ipaddr.ipv4 = ip;
-        timeout = time;
-    }
-    ~ggRec(void){}
-    bool operator>(const ggRec&);
-    bool operator<(const ggRec&);
-    bool operator==(const ggRec&);
-    void print(FILE* fw = stdout);
-    void SetIPAddr(uint32);
-    void SetTimeout(uint32);
-    uint32 GetIPAddr(void);
-    uint32 GetTimeout(void);
-    void tostr(char*, int);
+        ggRec(uint32 ip, uint32 time = (uint32)-1)
+        {
+            ipaddr.ipv4 = ip;
+            timeout = time;
+        }
+        ~ggRec(void){}
+        bool operator>(const ggRec&);
+        bool operator<(const ggRec&);
+        bool operator==(const ggRec&);
+        void print(FILE* fw = stdout);  //输出
+        void SetIPAddr(uint32);
+        void SetTimeout(uint32);
+        uint32 GetIPAddr(void);
+        uint32 GetTimeout(void);
+        void tostr(char*, int);         //数据转字符串
 };
 
 typedef std::list<ggRec>            ggList;
@@ -51,23 +49,25 @@ typedef std::list<ggRec>::iterator  ggListIter;
 class ggTest : public SSLTest
 {
     private:
-    ggList      m_list;
-    ggHostCFG   m_cfg;
-    IPBlock     m_ipnet;
-    uint32      m_next_test;
-    uint32      m_next_check;
+        ggList      m_list;         //IP地址列表
+        ggHostCFG   m_cfg;          //测试配置
+        IPBlock     m_ipnet;        //IP段
+        uint32      m_next_test;    //下一次测试时间
+        uint32      m_next_check;   //下一次检测时间
+
+    private:
+        void InitCfg(void);         //初始化为默认参数
+        void Load2Mem(void);        //从文件读取历史数据
+        void Save2File(void);       //保存数据到文件
+        void CheckFunc(void);       //检测所有IP的超时
+        void TestFunc(void);        //测试IP地址
 
     public:
-    ggTest(void);
-    ~ggTest(void);
-    void InitCfg(void);
-    void ParseArg(int, char**);
-    void InitTest(void);
-    void Load2Mem(void);
-    void Save2File(void);
-    void CheckFunc(void);
-    void TestFunc(void);
-    void LoopFunc(void);
+        ggTest(void);
+        ~ggTest(void);
+        void ParseArg(int, char**); //从命令行设置参数
+        void InitTest(void);        //初始化测试数据
+        void LoopFunc(void);        //根据超时，一个小循环
 };
 
 #endif
