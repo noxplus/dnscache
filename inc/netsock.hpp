@@ -160,6 +160,7 @@ class NetTCP
         void    TCPClose(void);  //关闭连接
         int     TCPSend(char*, int, int);//发送数据 数据，长度，超时
         int     TCPRecv(char*, int, int);//接收数据 数据，长度，超时
+        int     TCPClear(int);//在指定时间内，清空socket接收缓存
 
         int     SetSockBlock(bool); //设定socket的阻塞/非阻塞
         void    SetIPPort(uint32, uint16); //设定服务器的IP、端口

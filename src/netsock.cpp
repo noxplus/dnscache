@@ -248,6 +248,36 @@ int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
     return ERR_recv_timeout;
 }
 
+//clear recv buf in timeout
+//return bytes
+int NetTCP::TCPClear(int timeout)
+{
+    int iret = -1, irecv = 0;
+    char buf[1024];
+    struct  timeval tt;
+    fd_set  fdset;
+
+    tt.tv_sec = timeout/1000;
+    tt.tv_usec = timeout%1000 * 1000;
+    while (tt.tv_sec != 0 || tt.tv_usec != 0)
+    {
+        FD_ZERO(&fdset);
+        FD_SET(m_sock, &fdset);
+        iret = select(SelSck(m_sock), &fdset, NULL, NULL, &tt);
+        if (iret == 0)//timeout
+        {
+            return irecv;
+        }
+        if (FD_ISSET(m_sock, &fdset) == 0)
+        {
+            continue;
+        }
+        iret = recv(m_sock, buf, 1024, 0);
+        if (iret < 0) return ERR_recv_error;
+        irecv += iret;
+    }
+    return irecv;
+}
 SSLTest::SSLTest()
 {
     m_hello.ssl.ContentType = 22;
@@ -272,7 +302,7 @@ SSLTest::~SSLTest()
 int SSLTest::RunTest(void)
 {
     int iret;
-    uint32 tstart, tend;
+    uint32 tstart = 0, tend = 0;
     SSLHead     sslh;
     SSLHSHead   HSh;
 
@@ -311,6 +341,10 @@ int SSLTest::RunTest(void)
     }
 
     tend = GetTimeMs();
+
+    iret = TCPClear(100);
+    //Notify(PRT_INFO, "clear [%d]", iret);
+
     TCPClose();
 
     return tend - tstart;
