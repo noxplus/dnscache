@@ -27,6 +27,7 @@
 typedef enum _err_no
 {
     ERR_no = 77000000,
+    ERR_timeout,
     ERR_sock_error,
     ERR_bind_error,
     ERR_conn_error,
@@ -74,7 +75,6 @@ typedef struct
 }SSLCliHello;
 #pragma pack(pop)
 
-
 class IPBlock
 {
     private:
@@ -106,7 +106,6 @@ class NetUDP
         int     UDPBind(uint16);//port
         int     UDPSend(const char*, int, int);//发送数据 数据，长度，超时
         int     UDPRecv(char*, int, int);//接收数据 数据，长度，超时
-        int     UDPClear(int);//在指定时间内，清空socket接收缓存
 };
 
 class NetTCP
@@ -114,10 +113,6 @@ class NetTCP
     private:
         int                 m_sock; //使用的socket
         struct sockaddr_in  remote; //远端地址信息
-
-#ifdef _WIN32
-        static  bool wsaStatus(bool);
-#endif
 
     public:
         NetTCP();
@@ -153,6 +148,7 @@ class SSLTest : public NetTCP
         int RunTest(const char*);
         int RunTest(uint32);
 };
+
 
 //设定ip、port
 inline void NetTCP::SetIPPort(uint32 ip, uint16 port)
