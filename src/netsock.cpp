@@ -81,6 +81,96 @@ uint32 IPBlock::GetRandIP(void)
     return tip;
 }
 
+NetUDP::NetUDP()
+{
+}
+NetUDP::NetUDP(int sck)
+{
+    m_sock = sck;
+}
+NetUDP::~NetUDP()
+{
+}
+int NetUDP::UDPBind(uint16 port)
+{
+    struct sockaddr_in  local;
+
+    if ((m_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
+    {
+        Notify(PRT_ERROR, "socket error");
+        return ERR_sock_error;
+    }
+    bzero(&local, sizeof(local));
+    local.sin_family = AF_INET;
+    local.sin_port = htons(port);
+    local.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if (bind(m_sock, (struct sockaddr*)&local, sizeof(local)) == -1)
+    {
+        Notify(PRT_ERROR, "bind error");
+        return ERR_bind_error;
+    }
+
+    return 0;
+}
+
+int NetUDP::UDPSend(const char* buf, int len, int timeout)
+{
+    int iret;
+    struct timeval tv;
+    fd_set fdw;
+
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = (timeout % 1000) * 1000;
+    FD_ZERO(&fdw);
+    FD_SET(m_sock, &fdw);
+    iret = select(SelSck(m_sock), NULL, &fdw, NULL, &tv);
+    if (iret == 0) return ERR_send_timeout;
+    if (iret < 0 || FD_ISSET(m_sock, &fdw) == 0)
+    {
+        Notify(PRT_ERROR, "select error");
+        return ERR_send_error;
+    }
+
+    iret = sendto(m_sock, buf, len, 0, (sockaddr*)&remote, sizeof(remote));
+
+    if (iret == len) return 0;
+    return ERR_send_error;
+}
+int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
+{
+    int iret;
+    socklen_t   slen = sizeof(struct sockaddr_in);
+    struct timeval tv;
+    fd_set fdr;
+
+    tv.tv_sec = timeout / 1000;
+    tv.tv_usec = (timeout % 1000) * 1000;
+    FD_ZERO(&fdr);
+    FD_SET(m_sock, &fdr);
+    iret = select(SelSck(m_sock), &fdr, NULL, NULL, &tv);
+    if (iret == 0) return ERR_recv_timeout;
+    if (iret < 0 || FD_ISSET(m_sock, &fdr) == 0)
+    {
+        Notify(PRT_ERROR, "select error");
+        return ERR_recv_error;
+    }
+
+    iret = recvfrom(m_sock, buf, maxlen, 0, (sockaddr*)&remote, &slen);
+    if (iret < 0) return ERR_recv_error;
+    if (iret == maxlen)
+    {
+        UDPClear(100);
+        return ERR_recv_error;
+    }
+
+    return 0;
+}
+int NetUDP::UDPClear(int timeout)
+{
+    return 0;
+}
+
 NetTCP::NetTCP()
 {
 #ifdef _WIN32
@@ -195,8 +285,7 @@ void NetTCP::TCPClose()
 }
 
 //send buf in timeout
-//return time ( <0 in error)
-int NetTCP::TCPSend(char* buf, int slen, int timeout)
+int NetTCP::TCPSend(const char* buf, int slen, int timeout)
 {
     int iret = -1, isent = 0;
     struct timeval tt;

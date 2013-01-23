@@ -99,4 +99,7 @@ void SleepMS(uint32);
 
 int Notify(int, const char*, ...);
 
+//占有/释放/测试是否可用
+bool GetTF(bool);
+
 #endif

@@ -119,3 +119,19 @@ int Notify(int level, const char *fmt, ...)
 #endif
     return cnt;
 }
+
+//true: 占有/释放
+//false: 测试是否可用
+bool GetTF(bool flag)
+{
+    static bool lflag = true;
+
+    if (flag == true)
+    {
+        lflag = !lflag;
+        return !lflag;
+    }
+
+    if (lflag == false) SleepMS(10);
+    return lflag;
+}

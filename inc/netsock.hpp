@@ -28,6 +28,7 @@ typedef enum _err_no
 {
     ERR_no = 77000000,
     ERR_sock_error,
+    ERR_bind_error,
     ERR_conn_error,
     ERR_send_error,
     ERR_recv_error,
@@ -41,55 +42,6 @@ typedef union
     uint32  ipv4;
     uint8   ipc[4];
 }IPv4;
-
-typedef struct
-{
-    uint16  TranID;
-    uint16  Flags;
-    uint16  Quests;
-    uint16  Ansers;
-    uint16  Auths;
-    uint16  Addits;
-}DnsHead;
-
-typedef struct
-{
-    uint8   NameLen;
-    char    Name[NAMEMAXLEN];
-    uint16  Type;
-    uint16  Class;
-}DnsQueryRec;
-typedef struct
-{
-    uint8   NameLen;
-    char    Name[NAMEMAXLEN];
-    uint16  Type;
-    uint16  Class;
-    uint32  TTL;
-    uint16  Addlen;
-    IPv4    IPadd;
-}DnsAnswerRec;
-
-typedef struct
-{
-    uint32 Index;   //
-    uint32 Type;    //
-    int32 TTL;      //dns time to live
-    union _un_name
-    {
-        char cname[NAMEMAXLEN];
-        int32 iname[NAMEMAXLEN/sizeof(int32)];
-    }uName;
-    IPv4 ip;
-}DNSRecode, *pDNSRecode;
-
-typedef struct
-{
-    int         sktfd;
-    struct sockaddr_in localadd;
-    uint16      dlen;
-    char        data[512];
-}LocalQuery;
 
 #pragma pack(push)
 #pragma pack(1)
@@ -141,12 +93,27 @@ class IPBlock
         uint32 GetRandIP(void);//获得一个子网内随机IP
 };
 
+class NetUDP
+{
+    private:
+        int m_sock;
+        struct sockaddr_in  remote;
+
+    public:
+        NetUDP();
+        ~NetUDP();
+        NetUDP(int);
+        int     UDPBind(uint16);//port
+        int     UDPSend(const char*, int, int);//发送数据 数据，长度，超时
+        int     UDPRecv(char*, int, int);//接收数据 数据，长度，超时
+        int     UDPClear(int);//在指定时间内，清空socket接收缓存
+};
+
 class NetTCP
 {
     private:
         int                 m_sock; //使用的socket
         struct sockaddr_in  remote; //远端地址信息
-        struct sockaddr_in  local;  //本地地址信息
 
 #ifdef _WIN32
         static  bool wsaStatus(bool);
@@ -158,7 +125,7 @@ class NetTCP
 
         int     TCPConnect(int); //连接到远端。参数：超时
         void    TCPClose(void);  //关闭连接
-        int     TCPSend(char*, int, int);//发送数据 数据，长度，超时
+        int     TCPSend(const char*, int, int);//发送数据 数据，长度，超时
         int     TCPRecv(char*, int, int);//接收数据 数据，长度，超时
         int     TCPClear(int);//在指定时间内，清空socket接收缓存
 

@@ -32,11 +32,12 @@ obj : $(addsuffix .o, $(TARGET))
 bin : $(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	${CC} -o $(BIN)/dnscache $^ $(LFLAG)
+util.o netsock.o gghost.o : util.hpp
 
 main.o : main.cpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
-%.o : %.cpp %.hpp util.hpp
+%.o : %.cpp %.hpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
 
 gghost : gghost.cpp netsock.cpp util.cpp
