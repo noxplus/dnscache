@@ -5,6 +5,49 @@
 #pragma comment(lib, "ws2_32.lib")
 #endif
 
+/*===================================================*/
+class NetInit
+{
+    private:
+        NetInit(NetInit&);
+        NetInit& operator=(const NetInit&);
+    public:
+        static NetInit* GetInstance()
+        {
+            static NetInit m_Inst;
+            return &m_Inst;
+        };
+
+    private:
+        NetInit()
+        {
+            Notify(PRT_NOTICE, "init Net Mod");
+#ifdef _WIN32
+            WSADATA wsaData;
+            // Initialize Winsock version 2.2
+            if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
+            {
+                Notify(PRT_ERROR, "WSACleanup error %d",
+                        WSAGetLastError());
+            }
+#endif
+        }
+    public:
+        ~NetInit()
+        {
+#ifdef _WIN32
+            if (WSACleanup() == SOCKET_ERROR)
+            {
+                Notify(PRT_ERROR, "WSACleanup error %d",
+                        WSAGetLastError());
+            }
+#endif
+        }
+};
+
+NetInit * initnetmod = NetInit::GetInstance();
+/*===================================================*/
+
 IPBlock::IPBlock(void)
 {
     m_IPnet = m_IPmask = NULL;
@@ -160,22 +203,14 @@ int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
     if (iret < 0) return ERR_recv_error;
     if (iret == maxlen)
     {
-        UDPClear(100);
         return ERR_recv_error;
     }
 
     return 0;
 }
-int NetUDP::UDPClear(int timeout)
-{
-    return 0;
-}
 
 NetTCP::NetTCP()
 {
-#ifdef _WIN32
-    wsaStatus(true);
-#endif
 }
 
 NetTCP::~NetTCP()
@@ -183,39 +218,6 @@ NetTCP::~NetTCP()
     TCPClose();
     return;
 }
-
-#ifdef _WIN32
-bool NetTCP::wsaStatus(bool status)
-{
-    bool curStatus = false;
-    if (curStatus == status) return true;
-
-    if (status == true)
-    {//初始化wsa
-        WSADATA wsaData;
-        // Initialize Winsock version 2.2
-        if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
-        {
-            Notify(PRT_ERROR, "WSACleanup error %d",
-                    WSAGetLastError());
-            return false;
-        }
-
-        return curStatus = true;
-    }
-
-    //清理wsa
-    if (WSACleanup() == SOCKET_ERROR)
-    {
-        Notify(PRT_ERROR, "WSACleanup error %d",
-                WSAGetLastError());
-        return false;
-    }
-
-    curStatus = false;
-    return true;
-}
-#endif
 
 //connect in timeout~
 int NetTCP::TCPConnect(int timeout)

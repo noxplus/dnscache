@@ -82,10 +82,10 @@ uint32 ggRec::GetTimeout(void)
 void ggRec::tostr(char* str, int len)
 {
 #ifdef _WIN32
-    _snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
+    _snprintf(str, len, "%d.%d.%d.%d    \t%lu", ipaddr.ipc[0],
             ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
 #else
-    snprintf(str, len, "%3d.%3d.%3d.%3d\t%4lu", ipaddr.ipc[0],
+    snprintf(str, len, "%d.%d.%d.%d    \t%lu", ipaddr.ipc[0],
             ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
 #endif
 }
@@ -184,7 +184,7 @@ void ggTest::Load2Mem(void)
         ipread.ipc[1] = b;
         ipread.ipc[2] = c;
         ipread.ipc[3] = d;
-        ggRec recread(ipread.ipv4, m_cfg.SSLTimeout);
+        ggRec recread(ipread.ipv4, ERR_timeout);
         m_list.push_back(recread);
     }
     fclose(fr);
@@ -214,7 +214,7 @@ void ggTest::CheckFunc(void)
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
         iret = RunTest(it->GetIPAddr());
-        if (iret > ERR_no) it->SetTimeout(m_cfg.SSLTimeout);
+        if (iret > ERR_no) it->SetTimeout(ERR_timeout);
         else it->SetTimeout(iret);
 
         char tstr[256];
