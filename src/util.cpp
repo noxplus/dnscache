@@ -7,6 +7,9 @@ extern errno_t rand_s(unsigned int* randomValue);
 uint32 random32(void)
 {
     uint32 uiret = 0;
+    uint32 seeds = 0;
+    uint32 times = GetTimeMs();
+
 #ifdef __linux__
     static int fd = -1;
     if (fd == -1) fd = open("/dev/urandom", O_RDONLY);
@@ -17,7 +20,11 @@ uint32 random32(void)
     rand_s((uint*)&uiret);
 #endif
 
-    return uiret;
+    seeds = times & 0xff;
+    seeds += seeds << 16;
+    seeds += seeds << 8;
+
+    return uiret ^ seeds;
 }
 
 //获取毫秒数
