@@ -5,13 +5,13 @@
 int Usage(void)
 {
     fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-t test_time] [-c check_time]\n");
-    fprintf(stderr, "\t -C : timeout(ms) for connect to google IP.\n");
-    fprintf(stderr, "\t -S : timeout(ms) for send SSL package.\n");
-    fprintf(stderr, "\t -h : save count of host IP.\n");
-    fprintf(stderr, "\t -f : save file.\n");
+    fprintf(stderr, "\t -C : [500ms] timeout(ms) for connect to google IP.\n");
+    fprintf(stderr, "\t -S : [500ms] timeout(ms) for send SSL package.\n");
+    fprintf(stderr, "\t -h : [30] save count of host IP.\n");
+    fprintf(stderr, "\t -f : [test.txt] save file.\n");
     fprintf(stderr, "\t -b : IP blocks like '74.125.0.0/16,173.194.0.0/16'.\n");
-    fprintf(stderr, "\t -t : time(ms) between IP tries.\n");
-    fprintf(stderr, "\t -c : time(ms) between checks.\n");
+    fprintf(stderr, "\t -t : [2000ms] time(ms) between IP tries.\n");
+    fprintf(stderr, "\t -c : [600s] time(ms) between checks.\n");
     exit(1);
 }
 
@@ -82,11 +82,19 @@ uint32 ggRec::GetTimeout(void)
 void ggRec::tostr(char* str, int len)
 {
 #ifdef _WIN32
-    _snprintf(str, len, "%d.%d.%d.%d    \t%lu", ipaddr.ipc[0],
-            ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
+    if (timeout < ERR_no)
+        _snprintf(str, len, "%3d.%3d.%3d.%3d \t%lu", ipaddr.ipc[0],
+                ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
+    else
+        _snprintf(str, len, "%3d.%3d.%3d.%3d \t%s", ipaddr.ipc[0],
+                ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], err2str(timeout));
 #else
-    snprintf(str, len, "%d.%d.%d.%d    \t%lu", ipaddr.ipc[0],
-            ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
+    if (timeout < ERR_no)
+        snprintf(str, len, "%3d.%3d.%3d.%3d \t%lu", ipaddr.ipc[0],
+                ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], timeout);
+    else
+        snprintf(str, len, "%3d.%3d.%3d.%3d \t%s", ipaddr.ipc[0],
+                ipaddr.ipc[1], ipaddr.ipc[2], ipaddr.ipc[3], err2str(timeout));
 #endif
 }
 
@@ -207,6 +215,7 @@ void ggTest::Save2File(void)
 void ggTest::CheckFunc(void)
 {
     int iret;
+    int i = 0;
 
     m_next_check = GetTimeMs() + m_cfg.ChkInter;
 
@@ -219,7 +228,7 @@ void ggTest::CheckFunc(void)
 
         char tstr[256];
         it->tostr(tstr, sizeof(tstr));
-        Notify(PRT_DEBUG, "Check ip %s", tstr);
+        Notify(PRT_DEBUG, "[%03d] Check ip %s", i++, tstr);
     }
 
     m_list.sort();

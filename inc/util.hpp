@@ -89,6 +89,21 @@ typedef unsigned char   uint8;
 //
 #endif
 
+typedef enum _err_no
+{
+    ERR_no = 77000000,
+    ERR_timeout,
+    ERR_sock_error,
+    ERR_bind_error,
+    ERR_conn_error,
+    ERR_send_error,
+    ERR_recv_error,
+    ERR_conn_timeout,
+    ERR_send_timeout,
+    ERR_recv_timeout,
+    ERR_end
+}ErrNo;
+
 //util
 
 uint32 random32(void);
@@ -97,9 +112,10 @@ uint32 GetTimeMs(void);
 
 void SleepMS(uint32);
 
+const char* err2str(int);
+
 int Notify(int, const char*, ...);
 
-//占有/释放/测试是否可用
 bool GetTF(bool);
 
 #endif
