@@ -1,6 +1,7 @@
 TIMESTAMP:=$(shell date +%Y-%m-%d\ %T\ %z)
 AUTHER:=$(USER)
-TIMEVER:=$(shell date +%s)
+TIMEVER1:=$(shell date +%Y%m%d)
+TIMEVER2:=$(shell date +%s)
 
 BASE:=.
 SRC:=$(BASE)/src
