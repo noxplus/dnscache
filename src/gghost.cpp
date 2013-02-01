@@ -105,7 +105,7 @@ void ggTest::InitCfg(void)
     m_cfg.HostIPCnt = 30;           //-h
     m_cfg.BakFile = "test.txt";     //-f
     m_cfg.IPBlocks =                //-b
-        "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
+        "203.208.32.0/19, 74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
     m_cfg.ChkInter = 600*1000;      //-c
     m_cfg.TestInter = 2000;         //-s
 }
