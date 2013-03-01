@@ -14,6 +14,7 @@ vpath %.cpp $(SRC)
 vpath %.h $(INC)
 vpath %.hpp $(INC)
 vpath %.o $(TMP)
+vpath %.oo $(TMP)
 
 ARCH:=LANGUAGE=C 
 
@@ -24,25 +25,28 @@ DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=
 
-TARGET=util netsock gghost
+TARGET=util netsock gghost main
 
 none:
 	@echo all target: $(TARGET)
+
+util.o netsock.o gghost.o : util.hpp
+netsock.o : netsock.hpp
+gghost.o : gghost.hpp
+
 obj : $(addsuffix .o, $(TARGET))
 	@echo make all obj-file
 bin : $(addsuffix .o, $(TARGET))
 	@echo make bin-file
 	${CC} -o $(BIN)/dnscache $^ $(LFLAG)
-util.o netsock.o gghost.o : util.hpp
 
-main.o : main.cpp
+%.o : %.cpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
+%.oo : %.cpp
+	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG) -DONLY_RUN
 
-%.o : %.cpp %.hpp
-	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
-
-gghost : gghost.cpp netsock.cpp util.cpp
-	${CPP} -o $(BIN)/$@ $^ $(CFLAG) $(DFLAG) $(LFLAG) -DONLY_RUN
+gghost : gghost.oo netsock.o util.o
+	${CPP} -o $(BIN)/$@ $^ $(LFLAG)
 
 rebuild : clean obj bin
 
