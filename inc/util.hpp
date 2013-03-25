@@ -80,8 +80,6 @@ typedef unsigned char   uint8;
 #define PRT_DEBUG   4
 #define PRT_TEST    5
 
-#define NAMEMAXLEN  64
-
 #ifdef __GNUC__
 #define PACKED __attribute__((packed))
 #endif
@@ -91,16 +89,20 @@ typedef unsigned char   uint8;
 
 typedef enum _err_no
 {
-    ERR_no = 77000000,
-    ERR_timeout,
-    ERR_sock_error,
-    ERR_bind_error,
-    ERR_conn_error,
-    ERR_send_error,
-    ERR_recv_error,
-    ERR_conn_timeout,
-    ERR_send_timeout,
-    ERR_recv_timeout,
+    ERR_no = 0x77000000,
+    ERR_net_sock_error,
+    ERR_net_bind_error,
+    ERR_net_connect_error,
+    ERR_net_send_error,
+    ERR_net_recv_error,
+    ERR_net_select_error,
+    ERR_net_connect_timeout,
+    ERR_net_send_timeout,
+    ERR_net_recv_timeout,
+    ERR_net_select_timeout,
+    ERR_buf_malloc_fail,
+    ERR_dns_query_toomany,
+    ERR_dns_answer_toomany,
     ERR_end
 }ErrNo;
 

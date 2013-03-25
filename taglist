@@ -1,6 +1,8 @@
+inc/dnsutil.hpp
 inc/util.hpp
 inc/netsock.hpp
 inc/gghost.hpp
+src/dnsutil.cpp
 src/util.cpp
 src/netsock.cpp
 src/gghost.cpp

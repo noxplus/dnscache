@@ -141,7 +141,7 @@ int NetUDP::UDPBind(uint16 port)
     if ((m_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
         Notify(PRT_ERROR, "socket error");
-        return ERR_sock_error;
+        return ERR_net_sock_error;
     }
     bzero(&local, sizeof(local));
     local.sin_family = AF_INET;
@@ -151,7 +151,7 @@ int NetUDP::UDPBind(uint16 port)
     if (bind(m_sock, (struct sockaddr*)&local, sizeof(local)) == -1)
     {
         Notify(PRT_ERROR, "bind error");
-        return ERR_bind_error;
+        return ERR_net_bind_error;
     }
 
     return 0;
@@ -168,17 +168,17 @@ int NetUDP::UDPSend(const char* buf, int len, int timeout)
     FD_ZERO(&fdw);
     FD_SET(m_sock, &fdw);
     iret = select(SelSck(m_sock), NULL, &fdw, NULL, &tv);
-    if (iret == 0) return ERR_send_timeout;
+    if (iret == 0) return ERR_net_select_timeout;
     if (iret < 0 || FD_ISSET(m_sock, &fdw) == 0)
     {
-        Notify(PRT_ERROR, "select error");
-        return ERR_send_error;
+        Notify(PRT_ERROR, err2str(ERR_net_select_error));
+        return ERR_net_select_error;
     }
 
     iret = sendto(m_sock, buf, len, 0, (sockaddr*)&remote, sizeof(remote));
 
     if (iret == len) return 0;
-    return ERR_send_error;
+    return ERR_net_send_error;
 }
 int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
 {
@@ -192,18 +192,18 @@ int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
     FD_ZERO(&fdr);
     FD_SET(m_sock, &fdr);
     iret = select(SelSck(m_sock), &fdr, NULL, NULL, &tv);
-    if (iret == 0) return ERR_recv_timeout;
+    if (iret == 0) return ERR_net_recv_timeout;
     if (iret < 0 || FD_ISSET(m_sock, &fdr) == 0)
     {
-        Notify(PRT_ERROR, "select error");
-        return ERR_recv_error;
+        Notify(PRT_ERROR, err2str(ERR_net_select_error));
+        return ERR_net_select_error;
     }
 
     iret = recvfrom(m_sock, buf, maxlen, 0, (sockaddr*)&remote, &slen);
-    if (iret < 0) return ERR_recv_error;
+    if (iret < 0) return ERR_net_recv_error;
     if (iret == maxlen)
     {
-        return ERR_recv_error;
+        return ERR_net_recv_error;
     }
 
     return 0;
@@ -225,7 +225,7 @@ int NetTCP::TCPConnect(int timeout)
     int i, iret = -1;
     if ((m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
     {
-        return ERR_sock_error;
+        return ERR_net_sock_error;
     }
 
     SetSockBlock(false);
@@ -244,9 +244,9 @@ int NetTCP::TCPConnect(int timeout)
                 WSAGetLastError() != WSAEALREADY
            )
         {
-            Notify(PRT_ERROR, "connect");
+            Notify(PRT_ERROR, err2str(ERR_net_connect_error));
             SetSockBlock(true);
-            return ERR_conn_error;
+            return ERR_net_connect_error;
         }
 #endif
 #ifdef __linux__
@@ -257,9 +257,9 @@ int NetTCP::TCPConnect(int timeout)
         }
         if (iret == -1 && errno != EINPROGRESS && errno != EALREADY)
         {
-            Notify(PRT_ERROR, "connect");
+            Notify(PRT_ERROR, err2str(ERR_net_connect_error));
             SetSockBlock(true);
-            return ERR_conn_error;
+            return ERR_net_connect_error;
         }
 #endif
         SleepMS(50);
@@ -267,7 +267,7 @@ int NetTCP::TCPConnect(int timeout)
     SetSockBlock(true);
     if (iret != 0)
     {
-        return ERR_conn_timeout;
+        return ERR_net_connect_timeout;
     }
     return 0;
 }
@@ -305,11 +305,11 @@ int NetTCP::TCPSend(const char* buf, int slen, int timeout)
             continue;
         }
         iret = send(m_sock, buf + isent, slen - isent, 0);
-        if (iret < 0) return ERR_send_error;
+        if (iret < 0) return ERR_net_send_error;
         isent += iret;
         if (isent >= slen) return 0;
     }
-    return ERR_send_timeout;
+    return ERR_net_send_timeout;
 }
 
 //recv buf in timeout
@@ -332,11 +332,11 @@ int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
             continue;
         }
         iret = recv(m_sock, buf + irecv, rlen - irecv, 0);
-        if (iret < 0) return ERR_recv_error;
+        if (iret < 0) return ERR_net_recv_error;
         irecv += iret;
         if (irecv >= rlen) return 0;
     }
-    return ERR_recv_timeout;
+    return ERR_net_recv_timeout;
 }
 
 //clear recv buf in timeout
@@ -364,7 +364,7 @@ int NetTCP::TCPClear(int timeout)
             continue;
         }
         iret = recv(m_sock, buf, 1024, 0);
-        if (iret < 0) return ERR_recv_error;
+        if (iret < 0) return ERR_net_recv_error;
         irecv += iret;
     }
     return irecv;
@@ -408,7 +408,7 @@ int SSLTest::RunTest(void)
     if (iret >= ERR_no)
     {
         TCPClose();
-        return ERR_send_timeout;
+        return ERR_net_send_timeout;
     }
 
     tstart = GetTimeMs();
@@ -417,18 +417,18 @@ int SSLTest::RunTest(void)
     if (iret >= ERR_no)
     {
         TCPClose();
-        return ERR_recv_timeout;
+        return ERR_net_recv_timeout;
     }
     iret = TCPRecv((char*)&HSh, sizeof(HSh), m_SSL_recv_timeout);
     if (iret >= ERR_no)
     {
         TCPClose();
-        return ERR_recv_timeout;
+        return ERR_net_recv_timeout;
     }
     if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x02)
     {
         TCPClose();
-        return ERR_recv_error;
+        return ERR_net_recv_error;
     }
 
     tend = GetTimeMs();

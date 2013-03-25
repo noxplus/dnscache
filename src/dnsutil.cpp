@@ -1,18 +1,10 @@
-/* 查询指定域名的ip地址
- * 支持udp/tcp协议
- * 后续支持：根据返回数据的ttl过滤掉dns污染
- * 迂回：当udp查询，返回多次结果时，全部https测试。
- * 主要是针对https的，所以兼顾测试一下是否支持https。
+/* 
+ * 功能：dns报文处理
+ * 解包封包
  * */
 
-#include "util.h"
-#include "rbtree.h"
-#include "transdns.h"
-
-static char* srv = "8.8.8.8";//dns服务器。后续加入配置文件
-static char* qry = "www.google.com";
-
-static char data[1024];
+#include "util.hpp"
+#include "dnsutil.hpp"
 
 //dns报文采取后一种格式存储地址，并做适当压缩。
 //为了统一，内部也如此存储。
@@ -37,57 +29,67 @@ int addr2dns(char* dns, char* addr)
     }
     dns[l] = i - l;
     dns[i + 1] = 0;
-    dns[i+1+1] = 0x00;
-    dns[i+1+2] = 0x01;//type = 0x0001 netbyte
-    dns[i+1+3] = 0x00;
-    dns[i+1+4] = 0x01;//class = 0x0001 netbyte
-    return i + 6;
+
+    return i + 2;//必须包含末尾的0x00
+    //dns[i+1+1] = 0x00;
+    //dns[i+1+2] = 0x01;//type = 0x0001 netbyte
+    //dns[i+1+3] = 0x00;
+    //dns[i+1+4] = 0x01;//class = 0x0001 netbyte
+    //return i + 6;
 }
 //地址格式转换：
 //2aa3bbb2cd => aa.bbb.cd
 int dns2addr(char* addr, char* dns)
 {
-    return 0;
-}
-
-//生成dns记录的hash，简化比较
-uint32 GenIndex(DNSRecode* rec)
-{
-    uint32 Index = 0;
-    int i;
-    for (i = 0; i < 4; i++)
+    int i = 0, l, t=0;
+    while (*dns)
     {
-        Index ^= rec->uname.iname[i];
+        t++;
+        l = *dns++;
+        if (l < 0 || l >= 64) return -1;
+        for(i = 0; *dns && i < l; i++)
+        {
+            *addr++ = *dns++;
+            t++;
+        }
+        if (*dns == 0)
+        {
+            *addr = 0;
+            break;
+        }
+        *addr++ = '.';
     }
-
-    rec->index = Index;
-    return Index;
+    return t;
 }
 
-//解析报文(buf)内容，放置查询请求地址到query地址里。
-//本函数申请空间，外部调用负责释放
-int unpackQuery(char* buf, QueryRec** query)
+//解析m_srvbuf到m_dnshead, m_Qname
+int dnsutil::unpackQuery(void)
 {
     int i;
-    DnsHead *pHead = (DnsHead*)buf;
-    char *cur = buf+sizeof(DnsHead);
+    int buflen = *((*uint16)m_srvbuf);
+    char *cur = m_srvbuf + sizeof(uint16) + sizeof(DnsHead);
     char *str;
-    QueryRec* qry = NULL;
     int offset, iQue;
 
-    if (buf == NULL)
+    if (m_srvbuf == NULL || buflen <= sizeof(DnsHead))
     {
         Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
+        m_Qname[0] = m_Qname[1] = 0;
         return 0;
     }
+    memcpy(&m_head, buf, sizeof(m_head));
 
-    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
-    iQue = ntohs(pHead->Quests);
-    qry = (QueryRec*)calloc(iQue, sizeof(QueryRec));
-    if (query != NULL) *query = qry;
+    Notify(PRT_TEST, "ques=%d, ans=%d", ntohs(m_head.Quests), ntohs(m_head.Ansers));
+    iQue = ntohs(m_head.Quests);
+    if (iQue > DNSQUERYMAXREC)
+    {
+        m_Qname[0] = m_Qname[1] = 0;
+        return ERR_dns_query_toomany;
+    }
 
     for (i = 0; i < iQue; i++)
-    {
+    {//如果查询多结果，最后一个会覆盖前面
+        buflen = sizeof(uint16);
         str = cur;
         offset = 0;
         while (*str != 0x00)
@@ -99,43 +101,41 @@ int unpackQuery(char* buf, QueryRec** query)
                 str = buf+offset;
             }
             if (offset == 0) cur += *str + 1;
-            memcpy(qry[i].name+qry[i].namelen, str, *str+1);
-            qry[i].namelen += *str+1;
+            memcpy(m_Qname + buflen, str, *str+1);
+            buflen += *str+1;
             str += *str+1;
         }
-        cur++;
-        qry[i].type = ntohs(*((short*)cur));
-        cur+=2;
-        qry[i].class = ntohs(*((short*)cur));
-        cur += 2;
+        //cur++;
+        //type = ntohs(*((short*)cur));
+        //cur+=2;
+        //class = ntohs(*((short*)cur));
+        //cur += 2;
+        cur += 5;
     }
-    Notify(PRT_INFO, "ques=%s", qry->name);
+    memcpy(m_Qname, buflen, siezof(uint16));
+    Notify(PRT_INFO, "ques[%d] = %s", buflen, m_Qname + sizeof(uint16));
 
     return iQue;
 }
 
-//解析报文buf，解析到ans
-//申请的空间外部负责释放！
-int unpackAnswer(char* buf, AnswerRec** ans)
+//解析m_clibuf到m_AIP
+int dnsutil::unpackAnswer(void)
 {
     int i;
-    DnsHead *pHead = (DnsHead*)buf;
-    char *cur = buf+sizeof(DnsHead);
+    int buflen = *((*uint16)m_clibuf);
+    char *cur = m_clibuf + sizeof(uint16) + sizeof(DnsHead);
     char *str;
     int offset, iQue, iAns;
 
-    if (buf == NULL)
+    if (m_clibuf == NULL || buflen <= sizeof(DnsHead))
     {
         Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
+        m_AIP[0] = m_AIP[1] = 0;
         return 0;
     }
-    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(pHead->Quests), ntohs(pHead->Ansers));
+    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(m_head.Quests), ntohs(m_head.Ansers));
 
-    QueryRec* query = NULL;
-    AnswerRec* answer = NULL;
-
-    iQue = ntohs(pHead->Quests);
-    query = (QueryRec*)calloc(iQue, sizeof(QueryRec));
+    iQue = ntohs(m_head.Quests);
 
     for (i = 0; i < iQue; i++)
     {
@@ -150,23 +150,12 @@ int unpackAnswer(char* buf, AnswerRec** ans)
                 str = buf+offset;
             }
             if (offset == 0) cur += *str + 1;
-            memcpy(query[i].name+query[i].namelen, str, *str+1);
-            query[i].namelen += *str+1;
             str += *str+1;
         }
-        cur++;
-        query[i].type = ntohs(*((short*)cur));
-        cur+=2;
-        query[i].class = ntohs(*((short*)cur));
-        cur += 2;
+        cur += 5;
     }
 
-    free(query);//查询的结果没什么用
-    query = NULL;
-
-    iAns = ntohs(pHead->Ansers);
-    answer = (AnswerRec*)calloc(iAns, sizeof(AnswerRec));
-    if (ans != NULL) *ans = answer;
+    iAns = ntohs(m_head.Ansers);
 
     for (i = 0; i < iAns; i++)
     {
@@ -181,29 +170,30 @@ int unpackAnswer(char* buf, AnswerRec** ans)
                 str = buf + offset;
             }
             if (offset == 0) cur += *str + 1;
-            memcpy(answer[i].name+answer[i].namelen, str, *str+1);
-            answer[i].namelen += *str+1;
             str += *str+1;
         }
         cur++;
-        answer[i].type = ntohs(*((short*)cur));
+        ans[i].type = ntohs(*((short*)cur));
         cur+=2;
-        answer[i].class = ntohs(*((short*)cur));
+        ans[i].class = ntohs(*((short*)cur));
         cur += 2;
-        answer[i].ttl = ntohl(*((long*)cur));
+        ans[i].ttl = ntohl(*((long*)cur));
         cur+=4;
-        answer[i].Addlen = ntohs(*((short*)cur));
+        ans[i].Addlen = ntohs(*((short*)cur));
         cur+=2;
-        answer[i].ipadd.ipv4 = ntohl(*((unsigned long*)cur));
+        ans[i].ipadd.ipv4 = ntohl(*((unsigned long*)cur));
         cur += answer[i].Addlen;
-        printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].class, answer[i].ttl, answer[i].Addlen);
-        if (answer[i].Addlen == 4 && answer[i].type == 0x01 && answer[i].class == 0x01)
+        printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].Class, ans[i].ttl, ans[i].Addlen);
+        if (ans[i].Addlen == 4 && ans[i].type == 0x01 && ans[i].Class == 0x01)
         {
             return i;
         }
     }
     return 0;
 }
+
+int packQuery(char* buf, QueryRec* qry)
+{}
 
 //udp查询dns
 int udpquery(char* sbuf, int slen)

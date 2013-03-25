@@ -145,11 +145,15 @@ bool GetTF(bool flag)
 
 const char* err2str(int err_no)
 {
-    if (err_no < ERR_no || ERR_no > ERR_end) return "";
-    static const char errstr[][16] =
+    if (err_no < ERR_no || ERR_no > ERR_end) return "no such err code";
+    static const char errstr[][32] =
     {
-        "normal error" ,"timeout", "socket error", "bind error", "connect error",
-        "send error", "recv error", "connect timeout", "send timeout", "recv timeout",
+        "normal error", "net socket error", "net bind error", 
+        "net connect error","net send error", "net recv error",
+        "net select error", "net connect timeout", "net send timeout",
+        "net recv timeout", "net select timeout", 
+        "space malloc fail", "dns query records too many",
+        "dns answer records too many",
         "error end"
     };
 
