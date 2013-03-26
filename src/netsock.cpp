@@ -127,9 +127,14 @@ uint32 IPBlock::GetRandIP(void)
 NetUDP::NetUDP()
 {
 }
-NetUDP::NetUDP(int sck)
+NetUDP::NetUDP(int sock)
 {
-    m_sock = sck;
+    m_sock = sock;
+}
+NetUDP::NetUDP(NetUDP& rhs)
+{
+    m_sock = rhs.m_sock;
+    memcpy(&remote, &(rhs.remote), sizeof(remote));
 }
 NetUDP::~NetUDP()
 {
@@ -140,7 +145,7 @@ int NetUDP::UDPBind(uint16 port)
 
     if ((m_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
     {
-        Notify(PRT_ERROR, "socket error");
+        Notify(PRT_ERROR, err2str(ERR_net_sock_error));
         return ERR_net_sock_error;
     }
     bzero(&local, sizeof(local));
@@ -150,7 +155,7 @@ int NetUDP::UDPBind(uint16 port)
 
     if (bind(m_sock, (struct sockaddr*)&local, sizeof(local)) == -1)
     {
-        Notify(PRT_ERROR, "bind error");
+        Notify(PRT_ERROR, err2str(ERR_net_bind_error));
         return ERR_net_bind_error;
     }
 
@@ -176,9 +181,9 @@ int NetUDP::UDPSend(const char* buf, int len, int timeout)
     }
 
     iret = sendto(m_sock, buf, len, 0, (sockaddr*)&remote, sizeof(remote));
+    if (iret < 0) return ERR_net_send_error;
 
-    if (iret == len) return 0;
-    return ERR_net_send_error;
+    return iret;
 }
 int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
 {
@@ -201,12 +206,8 @@ int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
 
     iret = recvfrom(m_sock, buf, maxlen, 0, (sockaddr*)&remote, &slen);
     if (iret < 0) return ERR_net_recv_error;
-    if (iret == maxlen)
-    {
-        return ERR_net_recv_error;
-    }
 
-    return 0;
+    return iret;
 }
 
 NetTCP::NetTCP()
@@ -307,9 +308,9 @@ int NetTCP::TCPSend(const char* buf, int slen, int timeout)
         iret = send(m_sock, buf + isent, slen - isent, 0);
         if (iret < 0) return ERR_net_send_error;
         isent += iret;
-        if (isent >= slen) return 0;
+        if (isent >= slen) return isent;
     }
-    return ERR_net_send_timeout;
+    return isent;
 }
 
 //recv buf in timeout
@@ -334,9 +335,9 @@ int NetTCP::TCPRecv(char *buf, int rlen, int timeout)
         iret = recv(m_sock, buf + irecv, rlen - irecv, 0);
         if (iret < 0) return ERR_net_recv_error;
         irecv += iret;
-        if (irecv >= rlen) return 0;
+        if (irecv >= rlen) return irecv;
     }
-    return ERR_net_recv_timeout;
+    return irecv;
 }
 
 //clear recv buf in timeout

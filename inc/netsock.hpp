@@ -79,30 +79,41 @@ class IPBlock
         uint32 GetRandIP(void);//获得一个子网内随机IP
 };
 
-class NetUDP
+class Network
 {
-    private:
+protected:
         int m_sock;
         struct sockaddr_in  remote;
+public:
+        int     SetSockBlock(bool); //设定socket的阻塞/非阻塞
+        void    SetIPPort(uint32, uint16); //设定服务器的IP、端口
+        void    SetIPPort(const char*, uint16);//设定服务器的IP、端口
+        void    SetIP(uint32);//设定服务器的IP
+        void    SetIP(const char*);//设定服务器IP
+        int     GetSocket(void);//获取socket
+        int     SetSocket(int);//设置socket
+};
 
+//支持服务端、客户端
+class NetUDP : public Network
+{
     public:
         NetUDP();
         ~NetUDP();
         NetUDP(int);
+        NetUDP(NetUDP&);
         int     UDPBind(uint16);//port
         int     UDPSend(const char*, int, int);//发送数据 数据，长度，超时
         int     UDPRecv(char*, int, int);//接收数据 数据，长度，超时
 };
 
-class NetTCP
+//只支持客户端
+class NetTCP : public Network
 {
-    private:
-        int                 m_sock; //使用的socket
-        struct sockaddr_in  remote; //远端地址信息
-
     public:
         NetTCP();
         ~NetTCP();
+        NetTCP(NetTCP&);
 
         int     TCPConnect(int); //连接到远端。参数：超时
         void    TCPClose(void);  //关闭连接
@@ -110,11 +121,6 @@ class NetTCP
         int     TCPRecv(char*, int, int);//接收数据 数据，长度，超时
         int     TCPClear(int);//在指定时间内，清空socket接收缓存
 
-        int     SetSockBlock(bool); //设定socket的阻塞/非阻塞
-        void    SetIPPort(uint32, uint16); //设定服务器的IP、端口
-        void    SetIPPort(const char*, uint16);//设定服务器的IP、端口
-        void    SetIP(uint32);//设定服务器的IP
-        void    SetIP(const char*);//设定服务器IP
 };
 
 class SSLTest : public NetTCP
@@ -136,31 +142,39 @@ class SSLTest : public NetTCP
 };
 
 
+inline int Network::GetSocket(void)
+{
+    return m_sock;
+}
+inline int Network::SetSocket(int sock)
+{
+    return m_sock = sock;
+}
 //设定ip、port
-inline void NetTCP::SetIPPort(uint32 ip, uint16 port)
+inline void Network::SetIPPort(uint32 ip, uint16 port)
 {
     memset(&remote, 0, sizeof(remote));
     remote.sin_family = AF_INET;
     remote.sin_port = htons(port);
     remote.sin_addr.s_addr = ip;
 }
-inline void NetTCP::SetIPPort(const char* ip, uint16 port)
+inline void Network::SetIPPort(const char* ip, uint16 port)
 {
     memset(&remote, 0, sizeof(remote));
     remote.sin_family = AF_INET;
     remote.sin_port = htons(port);
     remote.sin_addr.s_addr = inet_addr(ip);
 }
-inline void NetTCP::SetIP(uint32 ip)
+inline void Network::SetIP(uint32 ip)
 {
     remote.sin_addr.s_addr = ip;
 }
-inline void NetTCP::SetIP(const char* ip)
+inline void Network::SetIP(const char* ip)
 {
     remote.sin_addr.s_addr = inet_addr(ip);
 }
 //设置socket阻塞/非阻塞
-inline int NetTCP::SetSockBlock(bool block)
+inline int Network::SetSockBlock(bool block)
 {
     if (m_sock < 0) return false;
 

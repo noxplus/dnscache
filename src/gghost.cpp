@@ -192,7 +192,7 @@ void ggTest::Load2Mem(void)
         ipread.ipc[1] = b;
         ipread.ipc[2] = c;
         ipread.ipc[3] = d;
-        ggRec recread(ipread.ipv4, ERR_timeout);
+        ggRec recread(ipread.ipv4, ERR_no);
         m_list.push_back(recread);
     }
     fclose(fr);
@@ -223,8 +223,7 @@ void ggTest::CheckFunc(void)
     for (it = m_list.begin(); it != m_list.end(); it++)
     {
         iret = RunTest(it->GetIPAddr());
-        if (iret > ERR_no) it->SetTimeout(ERR_timeout);
-        else it->SetTimeout(iret);
+        it->SetTimeout(iret);
 
         char tstr[256];
         it->tostr(tstr, sizeof(tstr));
