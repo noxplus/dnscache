@@ -25,13 +25,14 @@ DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=
 
-TARGET=util netsock gghost main
+TARGET=util netsock dnsutil gghost main
 
 none:
 	@echo all target: $(TARGET)
 
-util.o netsock.o gghost.o : util.hpp
-netsock.o : netsock.hpp
+util.o netsock.o dnsutil.o gghost.o : util.hpp
+dnsutil.o netsock.o : netsock.hpp
+dnsutil.o : netsock.hpp
 gghost.o : gghost.hpp
 
 obj : $(addsuffix .o, $(TARGET))

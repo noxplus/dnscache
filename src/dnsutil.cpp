@@ -6,6 +6,9 @@
 #include "util.hpp"
 #include "dnsutil.hpp"
 
+//class=0x0001 type=0x0001//net byte order
+const static char TypeClass[4] = {0x00, 0x01, 0x00, 0x01};
+
 //dns报文采取后一种格式存储地址，并做适当压缩。
 //为了统一，内部也如此存储。
 //配置文件/外部参数使用.分割字段，加上转换函数。
@@ -65,30 +68,30 @@ int dns2addr(char* addr, char* dns)
 //解析m_srvbuf到m_dnshead, m_Qname
 int dnsutil::unpackQuery(void)
 {
-    int i;
-    int buflen = *((*uint16)m_srvbuf);
-    char *cur = m_srvbuf + sizeof(uint16) + sizeof(DnsHead);
+    uint16 buflen = *((uint16*)m_srvbuf);
+    char *cur = m_srvbuf + sizeof(uint16);
     char *str;
     int offset, iQue;
 
-    if (m_srvbuf == NULL || buflen <= sizeof(DnsHead))
+    if (buflen <= sizeof(m_head))
     {
-        Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
-        m_Qname[0] = m_Qname[1] = 0;
+        Notify(PRT_INFO, "[transdns:%d] buf error!", __LINE__);
+        memset(m_Qname, 0, DNSNAMEMAXLEN);
         return 0;
     }
-    memcpy(&m_head, buf, sizeof(m_head));
+    memcpy(&m_head, cur, sizeof(m_head));
+    cur += sizeof(m_head);
 
     Notify(PRT_TEST, "ques=%d, ans=%d", ntohs(m_head.Quests), ntohs(m_head.Ansers));
     iQue = ntohs(m_head.Quests);
     if (iQue > DNSQUERYMAXREC)
     {
-        m_Qname[0] = m_Qname[1] = 0;
+        memset(m_Qname, 0, DNSNAMEMAXLEN);
         return ERR_dns_query_toomany;
     }
 
-    for (i = 0; i < iQue; i++)
-    {//如果查询多结果，最后一个会覆盖前面
+    for (int i = 0; i < iQue; i++)
+    {//如果查询多结果，后一个会覆盖前面
         buflen = sizeof(uint16);
         str = cur;
         offset = 0;
@@ -98,7 +101,7 @@ int dnsutil::unpackQuery(void)
             {
                 if (offset == 0) cur++;
                 offset = (*str&0x03)*256 + *(str+1);
-                str = buf+offset;
+                str = m_srvbuf + sizeof(uint16) + offset;
             }
             if (offset == 0) cur += *str + 1;
             memcpy(m_Qname + buflen, str, *str+1);
@@ -112,32 +115,26 @@ int dnsutil::unpackQuery(void)
         //cur += 2;
         cur += 5;
     }
-    memcpy(m_Qname, buflen, siezof(uint16));
+    *((uint16*)m_Qname) = buflen - sizeof(uint16);
     Notify(PRT_INFO, "ques[%d] = %s", buflen, m_Qname + sizeof(uint16));
 
     return iQue;
 }
 
-//解析m_clibuf到m_AIP
+//解析m_clibuf到m_DNSRec
 int dnsutil::unpackAnswer(void)
 {
-    int i;
-    int buflen = *((*uint16)m_clibuf);
-    char *cur = m_clibuf + sizeof(uint16) + sizeof(DnsHead);
+    //uint16 buflen = *((uint16*)m_clibuf);
+    char *cur = m_clibuf + sizeof(uint16);
     char *str;
     int offset, iQue, iAns;
+    DNSHead *thead = (DNSHead*)cur;
 
-    if (m_clibuf == NULL || buflen <= sizeof(DnsHead))
-    {
-        Notify(PRT_INFO, "[transdns:%d] buf is null!", __LINE__);
-        m_AIP[0] = m_AIP[1] = 0;
-        return 0;
-    }
-    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(m_head.Quests), ntohs(m_head.Ansers));
+    cur += sizeof(DNSHead);
+    Notify(PRT_INFO, "ques=%d, ans=%d", ntohs(thead->Quests), ntohs(thead->Ansers));
 
-    iQue = ntohs(m_head.Quests);
-
-    for (i = 0; i < iQue; i++)
+    iQue = ntohs(thead->Quests);
+    for (int i = 0; i < iQue; i++)
     {
         str = cur;
         offset = 0;
@@ -147,7 +144,7 @@ int dnsutil::unpackAnswer(void)
             {
                 if (offset == 0) cur++;
                 offset = (*str&0x03)*256 + *(str+1);
-                str = buf+offset;
+                str = m_clibuf + sizeof(uint16) + offset;
             }
             if (offset == 0) cur += *str + 1;
             str += *str+1;
@@ -155,9 +152,9 @@ int dnsutil::unpackAnswer(void)
         cur += 5;
     }
 
-    iAns = ntohs(m_head.Ansers);
-
-    for (i = 0; i < iAns; i++)
+    AnswerRec   ans;
+    iAns = ntohs(thead->Ansers);
+    for (int i = 0; i < iAns; i++)
     {
         str = cur;
         offset = 0;
@@ -167,120 +164,86 @@ int dnsutil::unpackAnswer(void)
             {
                 if (offset == 0) cur++;
                 offset = (*str&0x03)*256 + *(str+1);
-                str = buf + offset;
+                str = m_clibuf + sizeof(uint16) + offset;
             }
             if (offset == 0) cur += *str + 1;
             str += *str+1;
         }
         cur++;
-        ans[i].type = ntohs(*((short*)cur));
-        cur+=2;
-        ans[i].class = ntohs(*((short*)cur));
+        ans.Type = ntohs(*((uint16*)cur));
         cur += 2;
-        ans[i].ttl = ntohl(*((long*)cur));
-        cur+=4;
-        ans[i].Addlen = ntohs(*((short*)cur));
-        cur+=2;
-        ans[i].ipadd.ipv4 = ntohl(*((unsigned long*)cur));
-        cur += answer[i].Addlen;
-        printf("[%s][%x][%x][%lx][%x]\n", answer[i].name, answer[i].type, answer[i].Class, ans[i].ttl, ans[i].Addlen);
-        if (ans[i].Addlen == 4 && ans[i].type == 0x01 && ans[i].Class == 0x01)
+        ans.Class = ntohs(*((uint16*)cur));
+        cur += 2;
+        ans.TTL = ntohl(*((uint32*)cur));
+        cur += 4;
+        ans.Addlen = ntohs(*((uint16*)cur));
+        cur += 2;
+        ans.IPAdd.ipv4 = ntohl(*((uint32*)cur));
+        cur += ans.Addlen;
+        printf("[%s][%x][%x][%lx][%x]\n", ans.Name, ans.Type, ans.Class, ans.TTL, ans.Addlen);
+        if (ans.Addlen == 4 && ans.Type == 0x01 && ans.Class == 0x01)
         {
-            return i;
+            m_DNSRec->ttl = ans.TTL;
+            m_DNSRec->ip.ipv4 = ans.IPAdd.ipv4;
+            return i + 1;//找到可用地址
         }
     }
     return 0;
 }
 
-int packQuery(char* buf, QueryRec* qry)
-{}
-
-//udp查询dns
-int udpquery(char* sbuf, int slen)
-{ 
-    int skfd = -1, iret;
-    struct sockaddr_in dsrv;
-    struct timeval timeout;
-    fd_set fdset;
-
-    bzero(&dsrv, sizeof(dsrv));
-
-    dsrv.sin_family = AF_INET;
-    dsrv.sin_port = htons(53);
-    dsrv.sin_addr.s_addr = inet_addr(srv);
-
-    if ((skfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
-        Notify(PRT_INFO, "[transdns:%d] socket error[%d:%s]", __LINE__, errno, strerror(errno));
-        return -1;
-    }
-
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-    FD_ZERO(&fdset);
-    FD_SET(skfd, &fdset);
-    select(skfd+1, NULL, &fdset, NULL, &timeout);
-    if (FD_ISSET(skfd, &fdset))
-    {
-        iret = sendto(skfd, sbuf, slen, 0, (struct sockaddr*)&dsrv, sizeof(dsrv));
-        Notify(PRT_INFO, "[transdns:%d] send[%d]error[%d:%s]", __LINE__, slen, errno, strerror(errno));
-    }
-    else
-    {
-        Notify(PRT_INFO, "[transdns:%d] send select error[%d:%s]", __LINE__, errno, strerror(errno));
-        close(skfd);
-        return -2;
-    }
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
-    FD_ZERO(&fdset);
-    FD_SET(skfd, &fdset);
-    iret = select(skfd+1, &fdset, NULL, NULL, &timeout);
-    if (iret == 0)
-    {
-        Notify(PRT_INFO, "[transdns:%d] recv select timeout", __LINE__);
-        close(skfd);
-        return -2;
-    }
-    if (iret < 0)
-    {
-        Notify(PRT_INFO, "[transdns:%d] recv select error[%d:%s]", __LINE__, errno, strerror(errno));
-        close(skfd);
-        return -3;
-    }
-    if (!FD_ISSET(skfd, &fdset))
-    {
-        Notify(PRT_INFO, "[transdns:%d] recv select not set", __LINE__);
-        close(skfd);
-        return -4;
-    }
-    iret = recvfrom(skfd, sbuf, 512, 0, NULL, NULL);
-    Notify(PRT_INFO, "recv[%d]", iret);
-
-    close(skfd);
-    return iret;
-}
-
-void gendata()
+//从m_Qname组织查询报文到m_clibuf
+int dnsutil::packQuery(void)
 {
-    DnsHead* dh = (DnsHead*)data;
+    char* cur = m_clibuf + sizeof(uint16);
+    uint16 len = *((uint16*)m_Qname);
+    DNSHead* dh = (DNSHead*)cur;
     dh->TranID = htons(0x1024);
     dh->Flags = htons(0x0100);
     dh->Quests = htons(0x01);
     dh->Ansers = htons(0x00);
     dh->Auths = htons(0x00);
     dh->Addits = htons(0x00);
-    int ilen = addr2dns(data+sizeof(DnsHead), qry);//
+    cur += sizeof(DNSHead);
+    memcpy(cur, m_Qname + sizeof(uint16), len);
+    cur += len;
+    memcpy(cur, TypeClass, sizeof(TypeClass));
 
-    udpquery(data, ilen+sizeof(DnsHead));
+    *((uint16*)m_clibuf) = sizeof(DNSHead) + len + sizeof(TypeClass);
+
+    return sizeof(DNSHead) + len + sizeof(TypeClass);
+}
+
+//根据m_head, m_Qname, m_DNSRec, 组织回复报文到m_srvbuf
+int dnsutil::packAnswer(void)
+{
+    char* cur = m_srvbuf + sizeof(uint16);
+    uint16 len = *((uint16*)m_Qname);
+    memcpy(cur, &m_head, sizeof(DNSHead));
+    cur += sizeof(DNSHead);
+    //query
+    memcpy(cur, m_Qname + sizeof(uint16), len);
+    cur += len;
+    memcpy(cur, TypeClass, sizeof(TypeClass));
+    cur += sizeof(TypeClass);
+    //answer
+    memcpy(cur, m_Qname + sizeof(uint16), len);
+    cur += len;
+    memcpy(cur, TypeClass, sizeof(TypeClass));
+    cur += sizeof(TypeClass);
+    *((uint32*)cur) = htonl(m_DNSRec->ttl);
+    cur += sizeof(uint32);
+    *((uint16*)cur) = htonl(sizeof(m_DNSRec->ip));
+    cur += sizeof(uint16);
+    *((uint32*)cur) = htonl(sizeof(m_DNSRec->ip.ipv4));
+    cur += sizeof(uint32);
+
+    return *((uint16*)m_srvbuf) = cur - m_srvbuf - sizeof(uint16);
 }
 
 #ifdef ONLY_RUN
 //参数：目标域名
 int main(int argc, char** argv)
 {
-    qry = argv[1];
-    gendata();
     return 0;
 }
 #endif

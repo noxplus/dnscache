@@ -3,7 +3,7 @@
 
 #include "netsock.hpp"
 
-#define DNSNAMEMAXLEN  64
+#define DNSNAMEMAXLEN  128
 #define DNSQUERYMAXREC 10
 #define DNSANSWERMAXREC 30
 
@@ -37,39 +37,40 @@ typedef struct
 
 typedef struct
 {
-    uint32 index;   //
-    uint32 type;    //
-    int32 ttl;      //dns time to live
-    union _un_name
+    uint32  slen;   //结构体长度
+    uint32  index;  //cname的hash
+    uint32  type;   //host,net,domain
+    uint32  ttl;    //dns time to live
+    union
     {
         char cname[DNSNAMEMAXLEN];
         int32 iname[DNSNAMEMAXLEN/sizeof(int32)];
     }uname;
     IPv4 ip;
-}DNSRecode, *pDNSRecode;
+}DNSRecord;
 
 class dnsutil
 {
 private:
-    char*   m_Qname;//前2字节表长度//host byte ordef
-    char*   m_AIP;//前2字节表长度//host byte order
-    char*   m_srvbuf;//前2字节表长度//host byte order
-    char*   m_clibuf;//前2字节表长度//host byte ordef
+    char*   m_Qname;    //前2字节表长度//host byte ordef
+    char*   m_srvbuf;   //前2字节表长度//host byte order
+    char*   m_clibuf;   //前2字节表长度//host byte ordef
+    DNSRecord*  m_DNSRec;
     uint32  buf_alloc;//构造/析够时，是否malloc/free
     DNSHead m_head;
 public:
 
-    //根据m_dnshead, m_Qname，组织查询报文到m_clibuf
-    int packQuery();
+    //根据m_Qname，组织查询报文到m_clibuf
+    int packQuery(void);
 
-    //根据m_dnshead, m_Qname, m_AIP, 组织回复报文到m_srvbuf
-    int packAnswer();
+    //根据m_Qname, m_DNSRec, 组织回复报文到m_srvbuf
+    int packAnswer(void);
 
     //解析m_srvbuf到m_dnshead, m_Qname
-    int unpackQuery();
+    int unpackQuery(void);
 
-    //解析m_clibuf到m_AIP
-    int unpackAnswer();
+    //解析m_clibuf到m_DNSRec
+    int unpackAnswer(void);
 };
 int addr2dns(char* dns, char* addr);
 int dns2addr(char* addr, char* dns);
