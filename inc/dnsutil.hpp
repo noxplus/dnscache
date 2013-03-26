@@ -39,15 +39,17 @@ typedef struct
 {
     uint32  slen;   //结构体长度
     uint32  index;  //cname的hash
-    uint32  type;   //host,net,domain
-    uint32  ttl;    //dns time to live
-    union
-    {
-        char cname[DNSNAMEMAXLEN];
-        int32 iname[DNSNAMEMAXLEN/sizeof(int32)];
-    }uname;
+    uint32  ttl;    //记录过期时间
+    //union
+    //{
+    //    char cname[DNSNAMEMAXLEN];
+    //    int32 iname[DNSNAMEMAXLEN/sizeof(int32)];
+    //}uname;
     IPv4 ip;
 }DNSRecord;
+
+int addr2dns(char* dns, char* addr);
+int dns2addr(char* addr, char* dns);
 
 class dnsutil
 {
@@ -72,7 +74,20 @@ public:
     //解析m_clibuf到m_DNSRec
     int unpackAnswer(void);
 };
-int addr2dns(char* dns, char* addr);
-int dns2addr(char* addr, char* dns);
+
+class LocalCache
+{
+protected:
+    int m_type;
+    std::Map<int, DNSRecord>  cache;
+public:
+};
+
+//从配置文件载入的缓存数据
+class StaticCache : public : LocalCache
+{};
+//动态获取的缓存数据
+class DynamicCache : public : LocalCache
+{};
 
 #endif
