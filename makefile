@@ -25,21 +25,18 @@ DFLAG:=
 #DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
 LFLAG:=
 
-TARGET=util netsock dnsutil gghost main
+TARGET=util netsock dnscache gghost
 
 none:
 	@echo all target: $(TARGET)
 
-util.o netsock.o dnsutil.o gghost.o : util.hpp
-dnsutil.o netsock.o : netsock.hpp
-dnsutil.o : netsock.hpp
+util.o netsock.o dnscache.o gghost.o : util.hpp
+dnscache.o netsock.o : netsock.hpp
+dnscache.o : netsock.hpp
 gghost.o : gghost.hpp
 
 obj : $(addsuffix .o, $(TARGET))
 	@echo make all obj-file
-bin : $(addsuffix .o, $(TARGET))
-	@echo make bin-file
-	${CC} -o $(BIN)/dnscache $^ $(LFLAG)
 
 %.o : %.cpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG)
@@ -48,7 +45,7 @@ bin : $(addsuffix .o, $(TARGET))
 
 gghost : gghost.oo netsock.o util.o
 	${CPP} -o $(BIN)/$@ $^ $(LFLAG)
-dnsutil : dnsutil.oo netsock.o util.o
+dnscache : dnscache.oo netsock.o util.o
 	${CPP} -o $(BIN)/$@ $^ $(LFLAG)
 
 rebuild : clean obj bin

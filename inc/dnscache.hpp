@@ -48,10 +48,33 @@ typedef struct
 int addr2dns(char* dns, char* addr);
 int dns2addr(char* addr, char* dns);
 
+class QName
+{
+    int     m_len;
+    char    m_name[DNSNAMEMAXLEN];
+public:
+    QName(void);
+    QName(const char*);//字符串归一小写
+    QName(const QName&);
+
+    int reset(const char*);//字符串会归一全小写
+    int reset(const QName&);
+    int GetSubName(QName&);
+
+    bool operator<(const QName&) const;
+    bool operator>(const QName&) const;
+    bool operator==(const QName&) const;
+
+    int getlen(void) const;
+    int clear(void);
+    int copyto(char*);
+    void print(void) const;
+};
+
 class dnsutil
 {
 private:
-    char*   m_Qname;    //前2字节表长度//host byte ordef
+    QName*  m_Qname;    //
     char*   m_srvbuf;   //前2字节表长度//host byte order
     char*   m_clibuf;   //前2字节表长度//host byte ordef
     DNSRecord*  m_DNSRec;
@@ -72,30 +95,36 @@ public:
     int unpackAnswer(void);
 };
 
-class LocalCache
+class MemCache
 {
 protected:
-    int m_type;
-    std::map<std::string, DNSRecord>  cache;
+    std::map<QName, DNSRecord>  cache;
 public:
-    LocalCache(int);
-    ~LocalCache(void);
-    void* search(std::string);
-    int update(std::string, DNSRecord&);
+    void* search(const QName&);
+    int update(const QName&, const DNSRecord&);
 };
 
 //从配置文件载入的缓存数据
-class StaticCache : public LocalCache
+class StaticCache : public MemCache
 {
 public:
     int init(char*);//from file
 };
 //动态获取的缓存数据
-class DynamicCache : public LocalCache
+class DynamicCache : public MemCache
 {
 public:
     int save(char*);//file
     int load(char*);//file
+};
+
+class Server
+{
+    StaticCache srv_add;//查询网址的dns服务器
+    StaticCache srv_dom;//查询域名的dns服务器
+    StaticCache host_add;//存储网址的IP地址
+    StaticCache host_dom;//存储域名的IP地址
+    DynamicCache dnscache;//存储查询的缓存数据
 };
 
 #endif

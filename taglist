@@ -1,8 +1,8 @@
-inc/dnsutil.hpp
+inc/dnscache.hpp
 inc/util.hpp
 inc/netsock.hpp
 inc/gghost.hpp
-src/dnsutil.cpp
+src/dnscache.cpp
 src/util.cpp
 src/netsock.cpp
 src/gghost.cpp
