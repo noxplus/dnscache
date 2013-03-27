@@ -1,6 +1,9 @@
 #ifndef _DNSUTIL_H_
 #define _DNSUTIL_H_
 
+#include <string>
+#include <map>
+
 #include "netsock.hpp"
 
 #define DNSNAMEMAXLEN  128
@@ -38,13 +41,7 @@ typedef struct
 typedef struct
 {
     uint32  slen;   //结构体长度
-    uint32  index;  //cname的hash
     uint32  ttl;    //记录过期时间
-    //union
-    //{
-    //    char cname[DNSNAMEMAXLEN];
-    //    int32 iname[DNSNAMEMAXLEN/sizeof(int32)];
-    //}uname;
     IPv4 ip;
 }DNSRecord;
 
@@ -79,15 +76,26 @@ class LocalCache
 {
 protected:
     int m_type;
-    std::Map<int, DNSRecord>  cache;
+    std::map<std::string, DNSRecord>  cache;
 public:
+    LocalCache(int);
+    ~LocalCache(void);
+    void* search(std::string);
+    int update(std::string, DNSRecord&);
 };
 
 //从配置文件载入的缓存数据
-class StaticCache : public : LocalCache
-{};
+class StaticCache : public LocalCache
+{
+public:
+    int init(char*);//from file
+};
 //动态获取的缓存数据
-class DynamicCache : public : LocalCache
-{};
+class DynamicCache : public LocalCache
+{
+public:
+    int save(char*);//file
+    int load(char*);//file
+};
 
 #endif

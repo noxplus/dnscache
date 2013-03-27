@@ -48,6 +48,8 @@ bin : $(addsuffix .o, $(TARGET))
 
 gghost : gghost.oo netsock.o util.o
 	${CPP} -o $(BIN)/$@ $^ $(LFLAG)
+dnsutil : dnsutil.oo netsock.o util.o
+	${CPP} -o $(BIN)/$@ $^ $(LFLAG)
 
 rebuild : clean obj bin
 

@@ -15,9 +15,9 @@
  * modify by nox @ 2012.11.20
  * */
 
-#include "util.h"
+#include "util.hpp"
 #include "rbtree.h"
-#include "gghost.h"
+#include "gghost.hpp"
 
 static RBRoot Srv_addr;
 static RBRoot Srv_domain;

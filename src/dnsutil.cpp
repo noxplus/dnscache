@@ -9,6 +9,23 @@
 //class=0x0001 type=0x0001//net byte order
 const static char TypeClass[4] = {0x00, 0x01, 0x00, 0x01};
 
+#ifdef ONLY_RUN
+//参数：目标域名
+int main(int argc, char** argv)
+{
+    DNSRecord rec, *ret;
+    LocalCache test(0);
+    rec.ttl = 100;
+    rec.ip.ipv4 = 0xaabbccdd;
+    test.update("abc", rec);
+    if ((ret = (DNSRecord*)test.search("abc")) != NULL)
+    {
+        printf("%ld, %lx\n", ret->ttl, ret->ip.ipv4);
+    }
+    return 0;
+}
+#endif
+
 //dns报文采取后一种格式存储地址，并做适当压缩。
 //为了统一，内部也如此存储。
 //配置文件/外部参数使用.分割字段，加上转换函数。
@@ -240,10 +257,32 @@ int dnsutil::packAnswer(void)
     return *((uint16*)m_srvbuf) = cur - m_srvbuf - sizeof(uint16);
 }
 
-#ifdef ONLY_RUN
-//参数：目标域名
-int main(int argc, char** argv)
+LocalCache::LocalCache(int t)
 {
-    return 0;
+    m_type = t;
 }
-#endif
+LocalCache::~LocalCache(){}
+
+void* LocalCache::search(std::string str)
+{
+    std::map<std::string, DNSRecord>::iterator it;
+    it = cache.find(str);
+    if (it == cache.end()) return NULL;
+    return (void*)&(it->second);
+}
+
+int LocalCache::update(std::string str, DNSRecord& rec)
+{
+    std::map<std::string, DNSRecord>::iterator it;
+    it = cache.find(str);
+    if (it == cache.end())
+    {
+        cache.insert(std::pair<std::string, DNSRecord>(str, rec));
+        return 0;
+    }
+    else
+    {
+        memcpy(&(it->second), &rec, sizeof(DNSRecord));
+        return 0;
+    }
+}
