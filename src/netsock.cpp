@@ -124,30 +124,46 @@ uint32 IPBlock::GetRandIP(void)
     return tip;
 }
 
+void Network::Close()
+{
+    if ((m_scktype & SCKTP_THIS) && (m_sock != -1))
+    {
+#ifdef _WIN32
+        closesocket(m_sock);
+#endif
+#ifdef __linux__
+        close(m_sock);
+#endif
+        m_sock = -1;
+        m_scktype = SCKTP_NONE;
+    }
+    return;
+}
+
 NetUDP::NetUDP()
 {
+    m_scktype = SCKTP_UDP | SCKTP_THIS;
+    m_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 }
 NetUDP::NetUDP(int sock)
 {
+    m_scktype = SCKTP_UDP | SCKTP_COPY;
     m_sock = sock;
 }
 NetUDP::NetUDP(NetUDP& rhs)
 {
+    m_scktype = SCKTP_UDP | SCKTP_COPY;
     m_sock = rhs.m_sock;
     memcpy(&remote, &(rhs.remote), sizeof(remote));
 }
 NetUDP::~NetUDP()
 {
+    Close();
 }
 int NetUDP::UDPBind(uint16 port)
 {
     struct sockaddr_in  local;
 
-    if ((m_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) == -1)
-    {
-        Notify(PRT_ERROR, err2str(ERR_net_sock_error));
-        return ERR_net_sock_error;
-    }
     bzero(&local, sizeof(local));
     local.sin_family = AF_INET;
     local.sin_port = htons(port);
@@ -212,21 +228,24 @@ int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
 
 NetTCP::NetTCP()
 {
+    m_scktype = SCKTP_UDP | SCKTP_THIS;
+    m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
 NetTCP::~NetTCP()
 {
-    TCPClose();
-    return;
+    Close();
 }
 
 //connect in timeout~
 int NetTCP::TCPConnect(int timeout)
 {
     int i, iret = -1;
-    if ((m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
+
+    if (m_sock == -1)
     {
-        return ERR_net_sock_error;
+        m_scktype = SCKTP_UDP | SCKTP_THIS;
+        m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     }
 
     SetSockBlock(false);
@@ -271,20 +290,6 @@ int NetTCP::TCPConnect(int timeout)
         return ERR_net_connect_timeout;
     }
     return 0;
-}
-void NetTCP::TCPClose()
-{
-    if (m_sock != -1)
-    {
-#ifdef _WIN32
-        closesocket(m_sock);
-#endif
-#ifdef __linux__
-        close(m_sock);
-#endif
-        m_sock = -1;
-    }
-    return;
 }
 
 //send buf in timeout
@@ -401,14 +406,14 @@ int SSLTest::RunTest(void)
     iret = TCPConnect(m_connect_timeout);
     if (iret >= ERR_no)
     {
-        TCPClose();
+        Close();
         return iret;
     }
 
     iret = TCPSend((char*)&m_hello, sizeof(m_hello), m_SSL_send_timeout);
     if (iret >= ERR_no)
     {
-        TCPClose();
+        Close();
         return ERR_net_send_timeout;
     }
 
@@ -417,18 +422,18 @@ int SSLTest::RunTest(void)
     iret = TCPRecv((char*)&sslh, sizeof(sslh), m_SSL_recv_timeout);
     if (iret >= ERR_no)
     {
-        TCPClose();
+        Close();
         return ERR_net_recv_timeout;
     }
     iret = TCPRecv((char*)&HSh, sizeof(HSh), m_SSL_recv_timeout);
     if (iret >= ERR_no)
     {
-        TCPClose();
+        Close();
         return ERR_net_recv_timeout;
     }
     if (sslh.ContentType != 0x16 || HSh.HandshakeType != 0x02)
     {
-        TCPClose();
+        Close();
         return ERR_net_recv_error;
     }
 
@@ -437,7 +442,7 @@ int SSLTest::RunTest(void)
     iret = TCPClear(100);
     //Notify(PRT_INFO, "clear [%d]", iret);
 
-    TCPClose();
+    Close();
 
     return tend - tstart;
 }

@@ -60,6 +60,7 @@ public:
     int reset(const char*);//字符串会归一全小写
     int reset(const QName&);
     int GetSubName(QName&);
+    int Cut(void);
 
     bool operator<(const QName&) const;
     bool operator>(const QName&) const;
@@ -71,17 +72,29 @@ public:
     void print(void) const;
 };
 
-class dnsutil
+#define STA_NONE    0x00
+#define STA_INIT    0x01    //初始化（非none）
+#define STA_SRV     0x02    //
+#define STA_FND     0x04    //收到新数据
+#define STA_CHK     0x08    //检测TTL
+#define STA_ACK     0x10    //回复客户端
+
+class DNSutil
 {
 private:
-    QName*  m_Qname;    //
-    char*   m_srvbuf;   //前2字节表长度//host byte order
-    char*   m_clibuf;   //前2字节表长度//host byte ordef
-    DNSRecord*  m_DNSRec;
-    uint32  buf_alloc;//构造/析够时，是否malloc/free
-    DNSHead m_head;
+    char    m_srvbuf[1024];   //前2字节表长度//host byte order
+    char    m_clibuf[1024];   //前2字节表长度//host byte ordef
+    uint16  m_srvID;    //srv获取的客户端ID
+    uint32  m_sta;
+    uint32  m_clilen;
+    uint32  m_srvlen;
+    IPv4    m_dnssrv;
+    DNSRecord  m_DNSRec;
+    QName   m_Qname;    //
+    NetUDP  m_cli;
+    NetUDP  m_srv;
+protected:
 public:
-
     //根据m_Qname，组织查询报文到m_clibuf
     int packQuery(void);
 
@@ -93,6 +106,22 @@ public:
 
     //解析m_clibuf到m_DNSRec
     int unpackAnswer(void);
+
+    //作为服务端，局域网收发数据
+    int SrvRecv(NetUDP&);
+    int SrvSend();
+
+    //作为客户端，从网络收发数据
+    int CliSend(void);
+    int CliRecv(void);
+
+    int GetSta(void);
+    int SetUse(void);
+    int Release(void);
+
+    void Search(void);
+    void DNSServer(void);
+    void UpdCache(void);
 };
 
 class MemCache
@@ -100,7 +129,7 @@ class MemCache
 protected:
     std::map<QName, DNSRecord>  cache;
 public:
-    void* search(const QName&);
+    DNSRecord* search(const QName&);
     int update(const QName&, const DNSRecord&);
 };
 
@@ -116,15 +145,6 @@ class DynamicCache : public MemCache
 public:
     int save(char*);//file
     int load(char*);//file
-};
-
-class Server
-{
-    StaticCache srv_add;//查询网址的dns服务器
-    StaticCache srv_dom;//查询域名的dns服务器
-    StaticCache host_add;//存储网址的IP地址
-    StaticCache host_dom;//存储域名的IP地址
-    DynamicCache dnscache;//存储查询的缓存数据
 };
 
 #endif

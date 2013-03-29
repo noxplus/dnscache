@@ -79,12 +79,20 @@ class IPBlock
         uint32 GetRandIP(void);//获得一个子网内随机IP
 };
 
+#define SCKTP_NONE  0x0
+#define SCKTP_UDP   0x1
+#define SCKTP_TCP   0x2
+#define SCKTP_THIS  0x4
+#define SCKTP_COPY  0x8
+
 class Network
 {
 protected:
+        int m_scktype;
         int m_sock;
         struct sockaddr_in  remote;
 public:
+        void    Close(void);  //关闭连接
         int     SetSockBlock(bool); //设定socket的阻塞/非阻塞
         void    SetIPPort(uint32, uint16); //设定服务器的IP、端口
         void    SetIPPort(const char*, uint16);//设定服务器的IP、端口
@@ -102,6 +110,7 @@ class NetUDP : public Network
         ~NetUDP();
         NetUDP(int);
         NetUDP(NetUDP&);
+        int     copy(NetUDP&);
         int     UDPBind(uint16);//port
         int     UDPSend(const char*, int, int);//发送数据 数据，长度，超时
         int     UDPRecv(char*, int, int);//接收数据 数据，长度，超时
@@ -116,7 +125,6 @@ class NetTCP : public Network
         NetTCP(NetTCP&);
 
         int     TCPConnect(int); //连接到远端。参数：超时
-        void    TCPClose(void);  //关闭连接
         int     TCPSend(const char*, int, int);//发送数据 数据，长度，超时
         int     TCPRecv(char*, int, int);//接收数据 数据，长度，超时
         int     TCPClear(int);//在指定时间内，清空socket接收缓存
@@ -148,6 +156,8 @@ inline int Network::GetSocket(void)
 }
 inline int Network::SetSocket(int sock)
 {
+    m_scktype &= ~SCKTP_THIS;
+    m_scktype |= SCKTP_COPY;
     return m_sock = sock;
 }
 //设定ip、port

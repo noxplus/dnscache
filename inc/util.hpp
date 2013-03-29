@@ -118,6 +118,5 @@ const char* err2str(int);
 
 int Notify(int, const char*, ...);
 
-bool GetTF(bool);
-
+int HexDump(char*, uint32);
 #endif

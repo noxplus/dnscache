@@ -43,6 +43,8 @@ obj : $(addsuffix .o, $(TARGET))
 %.oo : %.cpp
 	${CPP} -o $(TMP)/$@ -c $< $(CFLAG) $(DFLAG) -DONLY_RUN
 
+dnscache : LFLAG+= -lpthread
+
 gghost : gghost.oo netsock.o util.o
 	${CPP} -o $(BIN)/$@ $^ $(LFLAG)
 dnscache : dnscache.oo netsock.o util.o

@@ -127,22 +127,6 @@ int Notify(int level, const char *fmt, ...)
     return cnt;
 }
 
-//true: 占有/释放
-//false: 测试是否可用
-bool GetTF(bool flag)
-{
-    static bool lflag = true;
-
-    if (flag == true)
-    {
-        lflag = !lflag;
-        return !lflag;
-    }
-
-    if (lflag == false) SleepMS(10);
-    return lflag;
-}
-
 const char* err2str(int err_no)
 {
     if (err_no < ERR_no || ERR_no > ERR_end) return "no such err code";
@@ -158,4 +142,53 @@ const char* err2str(int err_no)
     };
 
     return errstr[err_no - ERR_no];
+}
+
+char toc(unsigned char c)
+{
+    if (c >= 0x20 && c <= 0x7e) return c;
+    return '.';
+}
+
+int HexDump(char* buf, uint32 len)
+{
+    uint32 index = 0;
+    unsigned char* l = (unsigned char*)buf;
+    Notify(PRT_NOTICE, "HexDump len = %d", len);
+    fprintf(stderr, "      00 01 02 03 04 05 06 07  ");
+    fprintf(stderr, "08 09 0A 0B 0C 0D 0E 0F   123456789ABCDEF\n");
+    fprintf(stderr, "-----------------------------------------------------\n");
+    while (len - index >= 16)
+    {
+        fprintf(stderr, "%04x  ", index);
+        fprintf(stderr, "%02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x   ",
+                l[0], l[1], l[2], l[3], l[4], l[5], l[6], l[7],
+                l[8], l[9], l[10], l[11], l[12], l[13], l[14], l[15]);
+        fprintf(stderr, "%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\n",
+                toc(l[0]), toc(l[1]), toc(l[2]), toc(l[3]), toc(l[4]),
+                toc(l[5]), toc(l[6]), toc(l[7]), toc(l[8]), toc(l[9]),
+                toc(l[10]), toc(l[11]), toc(l[12]), toc(l[13]), toc(l[14]),
+                toc(l[15]));
+        l += 16;
+        index += 16;
+    }
+    if (index != len)
+    {
+        fprintf(stderr, "%04x  ", index);
+        for(int i = 0; i < 16; i++)
+        {
+            if (i+index < len) fprintf(stderr, "%02x ", l[i]);
+            else fprintf(stderr, "   ");
+            if (i == 7) fprintf(stderr, " ");
+        }
+        fprintf(stderr, "  ");
+        for(int i = 0; i < 16; i++)
+        {
+            if (i+index < len) fprintf(stderr, "%c", toc(l[i]));
+            else fprintf(stderr, " ");
+        }
+        fprintf(stderr, "\n");
+    }
+    Notify(PRT_NOTICE, "HexDump ~fin~");
+    return len;
 }
