@@ -5,8 +5,8 @@
 int Usage(void)
 {
     fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-t test_time] [-c check_time]\n");
-    fprintf(stderr, "\t -C : [500ms] timeout(ms) for connect to google IP.\n");
-    fprintf(stderr, "\t -S : [500ms] timeout(ms) for send SSL package.\n");
+    fprintf(stderr, "\t -C : [1000ms] timeout(ms) for connect to google IP.\n");
+    fprintf(stderr, "\t -S : [1000ms] timeout(ms) for send SSL package.\n");
     fprintf(stderr, "\t -h : [30] save count of host IP.\n");
     fprintf(stderr, "\t -f : [test.txt] save file.\n");
     fprintf(stderr, "\t -b : IP blocks like '74.125.0.0/16,173.194.0.0/16'.\n");
@@ -100,8 +100,8 @@ void ggRec::tostr(char* str, int len)
 
 void ggTest::InitCfg(void)
 {
-    m_cfg.ConnTimeout = 500;       //-C
-    m_cfg.SSLTimeout = 500;        //-S
+    m_cfg.ConnTimeout = 1000;       //-C
+    m_cfg.SSLTimeout = 1000;        //-S
     m_cfg.HostIPCnt = 30;           //-h
     m_cfg.BakFile = "test.txt";     //-f
     m_cfg.IPBlocks =                //-b

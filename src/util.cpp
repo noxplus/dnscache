@@ -160,7 +160,7 @@ int HexDump(char* buf, uint32 len)
     fprintf(stderr, "-----------------------------------------------------\n");
     while (len - index >= 16)
     {
-        fprintf(stderr, "%04x  ", index);
+        fprintf(stderr, "%04lx  ", index);
         fprintf(stderr, "%02x %02x %02x %02x %02x %02x %02x %02x  %02x %02x %02x %02x %02x %02x %02x %02x   ",
                 l[0], l[1], l[2], l[3], l[4], l[5], l[6], l[7],
                 l[8], l[9], l[10], l[11], l[12], l[13], l[14], l[15]);
@@ -174,7 +174,7 @@ int HexDump(char* buf, uint32 len)
     }
     if (index != len)
     {
-        fprintf(stderr, "%04x  ", index);
+        fprintf(stderr, "%04lx  ", index);
         for(int i = 0; i < 16; i++)
         {
             if (i+index < len) fprintf(stderr, "%02x ", l[i]);

@@ -1,7 +1,7 @@
 TIMESTAMP:=$(shell date +%Y-%m-%d\ %T\ %z)
 AUTHER:=$(USER)
 TIMEVER1:=$(shell date +%Y%m%d)
-TIMEVER2:=$(shell date +%s)
+TIMEVER2:=$(shell date +%H%M%S)
 
 BASE:=.
 SRC:=$(BASE)/src
@@ -35,7 +35,7 @@ dnscache.o netsock.o : netsock.hpp
 dnscache.o : netsock.hpp
 gghost.o : gghost.hpp
 
-obj : $(addsuffix .o, $(TARGET))
+obj : $(addsuffix .o, $(TARGET)) gghost.oo dnscache.oo
 	@echo make all obj-file
 
 %.o : %.cpp
