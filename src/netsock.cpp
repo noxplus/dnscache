@@ -228,7 +228,7 @@ int NetUDP::UDPRecv(char* buf, int maxlen, int timeout)
 
 NetTCP::NetTCP()
 {
-    m_scktype = SCKTP_UDP | SCKTP_THIS;
+    m_scktype = SCKTP_TCP | SCKTP_THIS;
     m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 }
 
@@ -244,7 +244,7 @@ int NetTCP::TCPConnect(int timeout)
 
     if (m_sock == -1)
     {
-        m_scktype = SCKTP_UDP | SCKTP_THIS;
+        m_scktype = SCKTP_TCP | SCKTP_THIS;
         m_sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     }
 
