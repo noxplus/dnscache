@@ -70,4 +70,44 @@ class ggTest : public SSLTest
         void LoopFunc(void);        //根据超时，一个小循环
 };
 
+typedef struct _IPVal
+{
+    IPv4    ipaddr;
+    uint32  timeout;
+    //char    addon[1024];
+}IPVal;
+
+class ggStore
+{
+    private:
+#define DefaultSizeStore        20
+#define DefaultSizeHistory      1024
+        IPVal    *g_Store;//存储可用IP及超时信息
+        IPv4     *g_History;//存储被刷下的IP信息
+        uint32   g_SizeStore;
+        uint32   g_SizeHistory;
+
+        //以下三个变量会在Insert成功之后自动刷新
+        uint32   g_mintime;//最快时间，做阈值
+        uint32   g_maxtime;//最慢时间，加速插入
+        uint32   g_maxindex;//最慢序号，加速插入
+
+        pthread_mutex_t m_Lock_Store;//对Store的操作都要加锁
+
+        int MoveSort(int);      //对只有一个元素错位进行排序
+
+    public:
+        ggStore(void);
+        ggStore(int, int);
+        ~ggStore(void);
+
+        int Reset(int, int);    //重新设置大小
+        void Load2Mem(void);    //从文件读取历史数据
+        void Save2File(void);   //保存数据到文件
+
+        uint32 CheckGet(void);  //
+        int CheckSet(uint32);   //0x00: 开始
+        int Insert(IPVal*);     //
+}
+
 #endif
