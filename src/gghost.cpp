@@ -301,3 +301,33 @@ void ggTest::LoopFunc(void)
     SleepMS(m_next_test - GetTimeMs());
     return TestFunc();
 }
+
+ggStore::ggStore(void)
+{
+    g_SizeStore = DefaultSizeStore;
+    g_SizeHistory = DefaultSizeHistory;
+    g_Store = new(IPVal[g_SizeStore]);
+    g_History = new(IPv4[g_SizeHistory]);
+}
+ggStore::ggStore(int ist, int ihi)
+{
+    g_SizeStore = ist;
+    g_SizeHistory = ihi;
+    g_Store = new(IPVal[g_SizeStore]);
+    g_History = new(IPv4[g_SizeHistory]);
+}
+ggStore::~ggStore(void)
+{
+    if (g_Store != NULL)
+    {
+        delete g_Store;
+        g_Store = NULL;
+    }
+    if (g_History != NULL)
+    {
+        delete g_History;
+        g_History = NULL;
+    }
+    g_SizeStore = 0;
+    g_SizeHistory = 0;
+}
