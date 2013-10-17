@@ -108,6 +108,6 @@ class ggStore
         uint32 CheckGet(void);  //
         int CheckSet(uint32);   //0x00: 开始
         int Insert(IPVal*);     //
-}
+};
 
 #endif
