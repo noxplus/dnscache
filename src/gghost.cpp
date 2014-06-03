@@ -17,6 +17,8 @@ int Usage(void)
 
 int main(int argc, char** argv)
 {
+    printf("build@ %s by %s %s\n", TIMESTAMP, AUTHER, TIMEVER);
+
     ggTest test;
 
     test.ParseArg(argc, argv);

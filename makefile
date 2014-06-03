@@ -1,7 +1,8 @@
 TIMESTAMP:=$(shell date +%Y-%m-%d\ %T\ %z)
-AUTHER:=$(USER)
-TIMEVER1:=$(shell date +%Y%m%d)
-TIMEVER2:=$(shell date +%H%M%S)
+AUTHER?=$(USER)
+TIMEVER1?=$(shell date +%Y%m%d)
+TIMEVER2?=$(shell date +%H%M%S)
+INTVER?=0
 
 BASE:=.
 SRC:=$(BASE)/src
@@ -16,13 +17,13 @@ vpath %.hpp $(INC)
 vpath %.o $(TMP)
 vpath %.oo $(TMP)
 
-ARCH:=LANGUAGE=C 
+#ARCH:=LANGUAGE=C 
 
-CC:=${ARCH}gcc
-CPP:=${ARCH}g++
+CC:=${ARCH}clang
+CPP:=${ARCH}clang++
 CFLAG:=-Wall -O2 -I$(INC)
 DFLAG:=
-#DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER=$(TIMEVER)
+DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER="\"$(TIMEVER1)\"" -DVER=$(INTVER)
 LFLAG:=
 
 TARGET=util netsock dnscache gghost
@@ -53,4 +54,4 @@ dnscache : dnscache.oo netsock.o util.o
 rebuild : clean obj bin
 
 clean:
-	@-rm -f $(BIN)/* $(TMP)/*.o
+	@-rm -f $(BIN)/* $(TMP)/*.o $(TMP)/*.oo
