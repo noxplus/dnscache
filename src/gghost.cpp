@@ -2,16 +2,16 @@
 #include "gghost.hpp"
 
 #ifdef ONLY_RUN
-int Usage(void)
+int Usage(ggHostCFG cfg)
 {
     fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-t test_time] [-c check_time]\n");
-    fprintf(stderr, "\t -C : [1000ms] timeout(ms) for connect to google IP.\n");
-    fprintf(stderr, "\t -S : [1000ms] timeout(ms) for send SSL package.\n");
-    fprintf(stderr, "\t -h : [30] save count of host IP.\n");
-    fprintf(stderr, "\t -f : [test.txt] save file.\n");
-    fprintf(stderr, "\t -b : IP blocks like '74.125.0.0/16,173.194.0.0/16'.\n");
-    fprintf(stderr, "\t -t : [2000ms] time(ms) between IP tries.\n");
-    fprintf(stderr, "\t -c : [600s] time(ms) between checks.\n");
+    fprintf(stderr, "\t -C : [%ld ms] timeout(ms) for connect to google IP.\n", cfg.ConnTimeout);
+    fprintf(stderr, "\t -S : [%ld ms] timeout(ms) for send SSL package.\n", cfg.SSLTimeout);
+    fprintf(stderr, "\t -h : [%ld] save count of host IP.\n", cfg.HostIPCnt);
+    fprintf(stderr, "\t -f : [%s] save file.\n", cfg.BakFile);
+    fprintf(stderr, "\t -b : IP blocks like '%s'.\n", cfg.IPBlocks);
+    fprintf(stderr, "\t -t : [%ld ms] time(ms) between IP tries.\n", cfg.ChkInter);
+    fprintf(stderr, "\t -c : [%ld s] time(ms) between checks.\n", cfg.TestInter);
     exit(1);
 }
 
@@ -32,7 +32,7 @@ int main(int argc, char** argv)
     return 0;
 }
 #else
-int Usage(void)
+int Usage(ggHostCFG cfg)
 {
     exit(0);
 }
@@ -102,14 +102,15 @@ void ggRec::tostr(char* str, int len)
 
 void ggTest::InitCfg(void)
 {
-    m_cfg.ConnTimeout = 1000;       //-C
-    m_cfg.SSLTimeout = 1000;        //-S
+    m_cfg.ConnTimeout = 230;        //-C
+    m_cfg.SSLTimeout = 230;         //-S
     m_cfg.HostIPCnt = 30;           //-h
     m_cfg.BakFile = "test.txt";     //-f
     m_cfg.IPBlocks =                //-b
-        "74.125.0.0/16,173.194.0.0/16,72.14.192.0/18";
+        "216.239.32.0/19,64.233.160.0/19,66.249.80.0/20,72.14.192.0/18,209.85.128.0/17,"
+        "66.102.0.0/20,74.125.0.0/16,64.18.0.0/20,207.126.144.0/20,173.194.0.0/16";
     m_cfg.ChkInter = 600*1000;      //-c
-    m_cfg.TestInter = 2000;         //-s
+    m_cfg.TestInter = 250;          //-s
 }
 
 #define PraseChar(var) \
@@ -118,7 +119,7 @@ void ggTest::InitCfg(void)
         m_cfg.var = &argv[i][2];\
     }\
     else if (i < argc - 1) m_cfg.var = argv[++i];\
-    else Usage();
+    else Usage(m_cfg);
 
 #define PraseInt(var, Amin, Amax) \
     if (argv[i][2] != 0)\
@@ -126,7 +127,7 @@ void ggTest::InitCfg(void)
         m_cfg.var = atoi(&argv[i][2]);\
     }\
     else if (i < argc - 1) m_cfg.var = atoi(argv[++i]);\
-    else Usage();\
+    else Usage(m_cfg);\
     if (m_cfg.var < Amin) m_cfg.var = Amin;\
     if (m_cfg.var > Amax) m_cfg.var = Amax;
 
@@ -139,7 +140,7 @@ void ggTest::ParseArg(int argc, char** argv)
     for (i = 1; i < argc; i++)
     {
 #ifdef ONLY_RUN
-        if (argv[i][0] != '-' || argv[i][1] == 0) Usage();
+        if (argv[i][0] != '-' || argv[i][1] == 0) Usage(m_cfg);
 #endif
         switch (argv[i][1])
         {
@@ -151,7 +152,7 @@ void ggTest::ParseArg(int argc, char** argv)
             case 't': PraseInt(TestInter, 100, 86400000); break;
             case 'c': PraseInt(ChkInter, 1000, 86400000); break;
             default:
-                      Usage();
+                      Usage(m_cfg);
         }
     }
 }
@@ -308,26 +309,26 @@ ggStore::ggStore(void)
 {
     g_SizeStore = DefaultSizeStore;
     g_SizeHistory = DefaultSizeHistory;
-    g_Store = new(IPVal[g_SizeStore]);
-    g_History = new(IPv4[g_SizeHistory]);
+    g_Store = new IPVal[g_SizeStore];
+    g_History = new IPv4[g_SizeHistory];
 }
 ggStore::ggStore(int ist, int ihi)
 {
     g_SizeStore = ist;
     g_SizeHistory = ihi;
-    g_Store = new(IPVal[g_SizeStore]);
-    g_History = new(IPv4[g_SizeHistory]);
+    g_Store = new IPVal[g_SizeStore];
+    g_History = new IPv4[g_SizeHistory];
 }
 ggStore::~ggStore(void)
 {
     if (g_Store != NULL)
     {
-        delete g_Store;
+        delete [] g_Store;
         g_Store = NULL;
     }
     if (g_History != NULL)
     {
-        delete g_History;
+        delete [] g_History;
         g_History = NULL;
     }
     g_SizeStore = 0;

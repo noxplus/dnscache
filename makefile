@@ -17,12 +17,14 @@ vpath %.hpp $(INC)
 vpath %.o $(TMP)
 vpath %.oo $(TMP)
 
-#ARCH:=LANGUAGE=C 
+ARCH:=LANGUAGE=C 
 
-CC:=${ARCH}clang
-CPP:=${ARCH}clang++
+CC:=${ARCH}gcc
+CPP:=${ARCH}g++
 CFLAG:=-Wall -O2 -I$(INC)
-DFLAG:=
+ifdef STRONG
+	CFLAG+= -Werror
+endif
 DFLAG:=-DTIMESTAMP="\"$(TIMESTAMP)\"" -DAUTHER="\"$(AUTHER)\"" -DTIMEVER="\"$(TIMEVER1)\"" -DVER=$(INTVER)
 LFLAG:=
 

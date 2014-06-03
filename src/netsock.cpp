@@ -99,7 +99,7 @@ int IPBlock::Init(const char* blocks)
 
         m_blockcnt++;
 
-        Notify(PRT_INFO, "[IPBlock]IP[%lx]mask[%lx]", __LINE__,
+        Notify(PRT_INFO, "[IPBlock]IP[%08lx]mask[%08lx]",
                 m_IPnet[i].ipv4, m_IPmask[i].ipv4);
         blocks = strchr(blocks, ',');
         if (blocks == NULL) break;
