@@ -1,17 +1,25 @@
 #include "util.hpp"
 #include "gghost.hpp"
 
+//线程分类：
+//主线程 - 所有数据IO，定期检测
+//0~n 分块线程，测试各个分块
+//历史线程
+
+static ggHostCFG g_cfg;
+static IPBlock  g_ips;
+
 #ifdef ONLY_RUN
-int Usage(ggHostCFG cfg)
+int Usage(void)
 {
     fprintf(stderr, "Usage: testgg [-C timeout] [-S timeout] [-h count] [-f save-file] [-b ip-blocks] [-t test_time] [-c check_time]\n");
-    fprintf(stderr, "\t -C : [%ld ms] timeout(ms) for connect to google IP.\n", cfg.ConnTimeout);
-    fprintf(stderr, "\t -S : [%ld ms] timeout(ms) for send SSL package.\n", cfg.SSLTimeout);
-    fprintf(stderr, "\t -h : [%ld] save count of host IP.\n", cfg.HostIPCnt);
-    fprintf(stderr, "\t -f : [%s] save file.\n", cfg.BakFile);
-    fprintf(stderr, "\t -b : IP blocks like '%s'.\n", cfg.IPBlocks);
-    fprintf(stderr, "\t -t : [%ld ms] time(ms) between IP tries.\n", cfg.ChkInter);
-    fprintf(stderr, "\t -c : [%ld s] time(ms) between checks.\n", cfg.TestInter);
+    fprintf(stderr, "\t -C : [%ld ms] timeout(ms) for connect to google IP.\n", g_cfg.ConnTimeout);
+    fprintf(stderr, "\t -S : [%ld ms] timeout(ms) for send SSL package.\n", g_cfg.SSLTimeout);
+    fprintf(stderr, "\t -h : [%ld] save count of host IP.\n", g_cfg.HostIPCnt);
+    fprintf(stderr, "\t -f : [%s] save file.\n", g_cfg.BakFile);
+    fprintf(stderr, "\t -b : IP blocks like '%s'.\n", g_cfg.IPBlocks);
+    fprintf(stderr, "\t -t : [%ld ms] time(ms) between IP tries.\n", g_cfg.ChkInter);
+    fprintf(stderr, "\t -c : [%ld s] time(ms) between checks.\n", g_cfg.TestInter);
     exit(1);
 }
 
@@ -32,7 +40,7 @@ int main(int argc, char** argv)
     return 0;
 }
 #else
-int Usage(ggHostCFG cfg)
+int Usage(void)
 {
     exit(0);
 }
@@ -102,34 +110,34 @@ void ggRec::tostr(char* str, int len)
 
 void ggTest::InitCfg(void)
 {
-    m_cfg.ConnTimeout = 230;        //-C
-    m_cfg.SSLTimeout = 230;         //-S
-    m_cfg.HostIPCnt = 30;           //-h
-    m_cfg.BakFile = "test.txt";     //-f
-    m_cfg.IPBlocks =                //-b
+    g_cfg.ConnTimeout = 230;        //-C
+    g_cfg.SSLTimeout = 230;         //-S
+    g_cfg.HostIPCnt = 30;           //-h
+    g_cfg.BakFile = "test.txt";     //-f
+    g_cfg.IPBlocks =                //-b
         "216.239.32.0/19,64.233.160.0/19,66.249.80.0/20,72.14.192.0/18,209.85.128.0/17,"
         "66.102.0.0/20,74.125.0.0/16,64.18.0.0/20,207.126.144.0/20,173.194.0.0/16";
-    m_cfg.ChkInter = 600*1000;      //-c
-    m_cfg.TestInter = 250;          //-s
+    g_cfg.ChkInter = 600*1000;      //-c
+    g_cfg.TestInter = 250;          //-s
 }
 
 #define PraseChar(var) \
     if (argv[i][2] != 0)\
     {\
-        m_cfg.var = &argv[i][2];\
+        g_cfg.var = &argv[i][2];\
     }\
-    else if (i < argc - 1) m_cfg.var = argv[++i];\
-    else Usage(m_cfg);
+    else if (i < argc - 1) g_cfg.var = argv[++i];\
+    else Usage();
 
 #define PraseInt(var, Amin, Amax) \
     if (argv[i][2] != 0)\
     {\
-        m_cfg.var = atoi(&argv[i][2]);\
+        g_cfg.var = atoi(&argv[i][2]);\
     }\
-    else if (i < argc - 1) m_cfg.var = atoi(argv[++i]);\
-    else Usage(m_cfg);\
-    if (m_cfg.var < Amin) m_cfg.var = Amin;\
-    if (m_cfg.var > Amax) m_cfg.var = Amax;
+    else if (i < argc - 1) g_cfg.var = atoi(argv[++i]);\
+    else Usage();\
+    if (m_cfg.var < Amin) g_cfg.var = Amin;\
+    if (m_cfg.var > Amax) g_cfg.var = Amax;
 
 void ggTest::ParseArg(int argc, char** argv)
 {
@@ -152,7 +160,7 @@ void ggTest::ParseArg(int argc, char** argv)
             case 't': PraseInt(TestInter, 100, 86400000); break;
             case 'c': PraseInt(ChkInter, 1000, 86400000); break;
             default:
-                      Usage(m_cfg);
+                      Usage();
         }
     }
 }
@@ -168,13 +176,16 @@ ggTest::~ggTest(void)
 
 void ggTest::InitTest(void)
 {
-    SetTimeout(m_cfg.ConnTimeout, m_cfg.SSLTimeout, m_cfg.SSLTimeout);
 
-    m_ipnet.Init(m_cfg.IPBlocks);
+    g_ips.Init(m_cfg.IPBlocks);
+
+    for (int i = 0; i < m_ipnet.GetCnt(); i++)
+    {
+        CreateThread(OneBlockFunc, i);
+    }
 
     Load2Mem();
     CheckFunc();
-    SetIPPort(0UL, 443);
 }
 void ggTest::Load2Mem(void)
 {
@@ -333,4 +344,20 @@ ggStore::~ggStore(void)
     }
     g_SizeStore = 0;
     g_SizeHistory = 0;
+}
+
+
+int OneBlockFunc(void *arg)
+{
+    int idx = int(arg);
+    uint32 tip, tout;
+    SSLTest test;
+    test.SetIPPort(0UL, 443);
+    test.SetTimeout(g_cfg.ConnTimeout, g_cfg.SSLTimeout, g_cfg.SSLTimeout);
+
+    for(;;)
+    {
+        tip = g_ipnet.GetIdxRandIP(idx);
+        tout = test.RunTest(tip);
+    }
 }

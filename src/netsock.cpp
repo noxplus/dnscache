@@ -115,6 +115,14 @@ uint32 IPBlock::GetCnt(void)
 {
     return m_blockcnt;
 }
+uint32 IPBlock::GetIdxRandIP(int idx)
+{
+    uint32 tip, isel;
+    tip = random32();
+    isel = idx % m_blockcnt;
+    tip = (tip & m_IPmask[isel].ipv4) | m_IPnet[isel].ipv4;
+    return tip;
+}
 uint32 IPBlock::GetRandIP(void)
 {
     uint32 tip, isel;

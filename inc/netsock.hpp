@@ -76,6 +76,7 @@ class IPBlock
 
         uint32 GetCnt(void);
 
+        uint32 GetIdxRandIP(int);//获得指定子网内随机IP
         uint32 GetRandIP(void);//获得一个子网内随机IP
 };
 

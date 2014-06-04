@@ -2,10 +2,9 @@
 1、bin/gghost可以正常测试获取到指定段的随机IP并记录超时，保存最快。
 2、transdns（c）可以监听并转发udp的dns查询
 
-== 短期优化 ==
-1、优化随机IP获取方式，防止某一段独大。
-2、拼接功能模块，实现查询，获取一体化。
-3、比对apnic网段信息，大陆IP重新使用当地dns获取（主要针对跨网速度）
+== 短期目标 ==
+目前gae等工具已经很方便，全力获取最佳IP，搭配使用
++多线程，+数据库
 
 == 长期目标 ==
 1、udp dns缓存服务器。
@@ -13,21 +12,22 @@
 3、测试google的最快IP，动态返回，考虑加入根据证书匹配最优。
 4、针对大陆网站，允许再次使用本地dns查询，优化结果
 
-== 多线程 ==
-1、主线程：
-2、测试线程<1>：随机生成目标IP，并将测试结果反馈给维护线程
-3、测试线程<2>：根据已有列表的最前面IP/24,生成特殊的目标。
+== 使用 ==
+1. 编译
+make obj
+make gghost
+2. 使用
+bin/gghost
+探测到的IP地址会罗列在test.txt之中.
 
-== 临时日志 ==
- -- 服务部分
-    主线程： 单
-        启动其他线程。接收到请求，保存请求数据块。
-    工作线程：多
-        遍历请求块。根据请求，查询本地数据。如果有则直接回复。没有则网络查询。根据回复数据更新本地缓存。如果已有数据已经过期，查询并更新。如果IP满足既定条件，二次查询。
- -- 测试部分
-    维护线程：单
-        定期遍历测试所有已有数据。
-        维护数据的唯一性。
-        对新数据：
-        每次更新之后，同步数据到共享 --。
-    测试线程1：
+== 备注 ==
+1. IP段来源:
+nslookup -q=TXT _netblocks.google.com 8.8.8.8
+https://support.google.com/a/bin/answer.py?hl=zh-Hans&answer=60764
+2. 和dnsmasq的搭配
+我自己一直是这样找到ip地址，配合dnsmasq使用。dnsmasq所有linux发行版都有提供，且android手机，常见路由中也有。
+添加配置
+address=/google.com/XXX.XXX.XXX.XXX
+address=/gstatic.com/XXX.XXX.XXX.XXX
+address=/googleusercontent.com/XXX.XXX.XXX.XXX
+这样，常见的服务就没什么问题了，很简单。

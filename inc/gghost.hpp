@@ -46,7 +46,7 @@ class ggRec
 typedef std::list<ggRec>            ggList;
 typedef std::list<ggRec>::iterator  ggListIter;
 
-class ggTest : public SSLTest
+class ggTest
 {
     private:
         ggList      m_list;         //IP地址列表
