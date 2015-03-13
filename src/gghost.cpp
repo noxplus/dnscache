@@ -18,8 +18,8 @@ int Usage(void)
     fprintf(stderr, "\t -h : [%ld] save count of host IP.\n", g_cfg.HostIPCnt);
     fprintf(stderr, "\t -f : [%s] save file.\n", g_cfg.BakFile);
     fprintf(stderr, "\t -b : IP blocks like '%s'.\n", g_cfg.IPBlocks);
-    fprintf(stderr, "\t -t : [%ld ms] time(ms) between IP tries.\n", g_cfg.ChkInter);
-    fprintf(stderr, "\t -c : [%ld s] time(ms) between checks.\n", g_cfg.TestInter);
+    fprintf(stderr, "\t -t : [%ld ms] time(ms) between IP tries.\n", g_cfg.TestInter);
+    fprintf(stderr, "\t -c : [%ld s] time(ms) between checks.\n", g_cfg.ChkInter);
     exit(1);
 }
 
@@ -115,7 +115,7 @@ void ggTest::InitCfg(void)
     g_cfg.HostIPCnt = 30;           //-h
     g_cfg.BakFile = "test.txt";     //-f
     g_cfg.IPBlocks =                //-b
-        "216.239.32.0/19,64.233.160.0/19,66.249.80.0/20,72.14.192.0/18,209.85.128.0/17,"
+        "64.233.160.0/19,66.249.80.0/20,72.14.192.0/18,209.85.128.0/17,"
         "66.102.0.0/20,74.125.0.0/16,64.18.0.0/20,207.126.144.0/20,173.194.0.0/16";
     g_cfg.ChkInter = 600*1000;      //-c
     g_cfg.TestInter = 250;          //-s
